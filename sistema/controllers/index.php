@@ -13,19 +13,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit();
     }
 
-    $userModel = new User();
-    $userData = $userModel->getUserByUsername($usuario);
-
-    
-    //  if ($userData && password_verify($clave, $userData["password"])) {
-    if ($clave==$userData["password"]) {
-        $_SESSION["usuario"] = $userData["usuario"];
-        header("Location: ../views/home.php"); // Redirige al dashboard
-        exit();
-    } else {
-        header("Location: ../index.html?error=Usuario%20o%20contraseña%20incorrectos".$userData["password"]);
+    try {
+        $userModel = new User();
+        $userData = $userModel->getUserByUsername($usuario);
+    } catch (Throwable $e) {
+        $msg = rawurlencode('No se pudo entrar a la base: ' . $e->getMessage());
+        header("Location: ../index.html?error=" . $msg);
         exit();
     }
+
+    if (is_array($userData) && $clave === (string)$userData["password"]) {
+        $_SESSION["usuario"] = $userData["usuario"];
+        header("Location: ../views/home.php");
+        exit();
+    }
+
+    header("Location: ../index.html?error=Usuario%20o%20contrase%C3%B1a%20incorrectos");
+    exit();
 } else {
     header("Location: ../index.html");
     exit();
