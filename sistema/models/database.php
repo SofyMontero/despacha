@@ -38,6 +38,11 @@ class Database {
                 return self::$pdo;
             } catch (PDOException $e) {
                 $lastError = $e;
+                // 1045 = usuario o clave rechazados. Reintentar por TCP no lo corrige.
+                $driverCode = (int)($e->errorInfo[1] ?? 0);
+                if ($driverCode === 1045) {
+                    break;
+                }
             }
         }
 
