@@ -1,10 +1,14 @@
 <?php
 require_once __DIR__ . '/bootstrap.php';
 
+$cfg = multilicores_db_config();
+
 ops_json([
     'ok' => true,
     'name' => 'Multilicores Ops API',
     'version' => '0.1.0',
+    'env' => $cfg['env'],
+    'database' => $cfg['dbname'],
     'endpoints' => [
         'GET  /ops/index.php',
         'GET  /ops/schema.php  (diagnóstico Fase 1, solo lectura)',

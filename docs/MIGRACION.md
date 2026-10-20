@@ -6,8 +6,9 @@ Documento de control. Cada ítem se marca solo cuando ese cambio concreto esté 
 
 Este repositorio es el producto único. No hay Variante A ni Variante B, ni una segunda base de datos.
 
-- Catálogo, admin PHP, admin React y operaciones usan `DB_NAME`.
+- Catálogo, admin PHP, admin React y operaciones usan la base del ambiente activo.
 - `DB_NAME_OPS` y `new Database('ops')` quedaron retirados.
+- Ambientes: `APP_ENV=prod` (base de producción, es el defecto en Hostinger) y `APP_ENV=dev` (base `u633742531_Multi_test`, credenciales en `sistema/config/.env.dev`, fuera de git).
 - `/sistema/api/ops/` sigue siendo la ruta de operaciones (jornadas, visitas, entregas), dentro de la misma aplicación.
 - El interruptor PHP/React del catálogo cliente (`sistema/config/catalogo.php`) sigue existiendo. No forma parte de esta unificación.
 
@@ -29,7 +30,7 @@ Este repositorio es el producto único. No hay Variante A ni Variante B, ni una 
 ## Reglas de ejecución
 
 1. Un cambio pequeño por turno; esperar OK del usuario antes del siguiente.
-2. Una sola base. No volver a separar conexión ni esquema por “variante”.
+2. Una sola base por ambiente. `prod` y `dev` no se mezclan. No volver a separar conexión por “variante”.
 3. El contrato de `sistema/api/pedido.php` y `cliente.php` se cambia solo junto con la pantalla que lo usa.
 4. BD: documentar SQL antes de ejecutar. Preferir tablas y columnas nuevas.
 5. Credenciales: preparar env/fallback; no dejar secretos nuevos hardcodeados.
@@ -159,6 +160,7 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 | 2026-10-07 | 0.4–0.5 | Ops API + admin-app (ya en árbol) | `api/ops/*`, `admin-app/`, `sistema/ops/` | No | Verificado en disco |
 | 2026-10-07 | 1 (docs) | SQL Fase 1 listo, sin ejecutar | `sql/002_empresas_roles.sql` | Solo si se corre en BD | **Esperando OK** |
 | 2026-10-19 | — | Una sola versión: misma BD, sin Variante B | `database.env.php`, `models/database.php`, módulos, `sql/*.sql` | No cambia datos | Hecho en este repo |
+| 2026-10-19 | — | Ambientes prod y dev | `config/database.env.php`, `.env`, `.env.dev` | dev apunta a Multi_test; prod no cambia si no se sube `.env` | Hecho en este repo |
 
 ---
 

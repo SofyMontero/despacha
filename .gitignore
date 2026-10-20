@@ -1,0 +1,4 @@
+# Secretos y ambientes. Las plantillas .env.example sí se versionan.
+.env
+.env.*
+!.env.example

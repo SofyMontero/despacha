@@ -1,12 +1,17 @@
 <?php
 /**
- * Credenciales de base de datos.
+ * Credenciales de base de datos por ambiente.
+ *
+ * APP_ENV=prod (por defecto, Hostinger sin archivos .env)
+ *   → base de producción. No subir sistema/config/.env ni .env.dev.
+ *
+ * APP_ENV=dev
+ *   → base de test. Credenciales en sistema/config/.env.dev (no va a git).
  *
  * Prioridad:
- * 1) Variables de entorno / .env (recomendado)
- * 2) Fallback a los valores actuales de producción (Hostinger)
- *
- * Una sola base para catálogo, admin y operaciones.
+ * 1) sistema/.env y sistema/config/.env (definen APP_ENV)
+ * 2) sistema/config/.env.prod o sistema/config/.env.dev
+ * 3) Fallback de producción solo si APP_ENV=prod
  */
 
 function multilicores_load_dotenv(string $path): void
@@ -51,26 +56,59 @@ function multilicores_env(string $key, ?string $default = null): ?string
     return (string)$value;
 }
 
+function multilicores_bootstrap_env(): void
+{
+    static $loaded = false;
+    if ($loaded) {
+        return;
+    }
+    $loaded = true;
+
+    $root = dirname(__DIR__);
+    multilicores_load_dotenv($root . '/.env');
+    multilicores_load_dotenv($root . '/config/.env');
+
+    $env = strtolower((string)multilicores_env('APP_ENV', 'prod'));
+    $env = $env === 'dev' ? 'dev' : 'prod';
+    multilicores_load_dotenv($root . '/config/.env.' . $env);
+}
+
+function multilicores_app_env(): string
+{
+    multilicores_bootstrap_env();
+    $env = strtolower((string)multilicores_env('APP_ENV', 'prod'));
+    return $env === 'dev' ? 'dev' : 'prod';
+}
+
 /**
- * @return array{host:string,port:int,dbname:string,username:string,password:string,charset:string}
+ * @return array{host:string,port:int,dbname:string,username:string,password:string,charset:string,env:string}
  */
 function multilicores_db_config(): array
 {
-    static $loaded = false;
-    if (!$loaded) {
-        $root = dirname(__DIR__);
-        multilicores_load_dotenv($root . '/.env');
-        multilicores_load_dotenv($root . '/config/.env');
-        $loaded = true;
-    }
+    multilicores_bootstrap_env();
+    $env = multilicores_app_env();
 
-    // Fallbacks = comportamiento actual de producción (no romper Hostinger).
-    $host = multilicores_env('DB_HOST', 'localhost');
-    $port = (int)multilicores_env('DB_PORT', '3306');
-    $username = multilicores_env('DB_USER', 'u633742531_Multilicores25');
-    $password = multilicores_env('DB_PASS', 'Multilicores2025');
-    $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
-    $dbname = multilicores_env('DB_NAME', 'u633742531_Multilicores');
+    if ($env === 'dev') {
+        $host = multilicores_env('DB_HOST', 'localhost');
+        $port = (int)multilicores_env('DB_PORT', '3306');
+        $username = multilicores_env('DB_USER', '');
+        $password = multilicores_env('DB_PASS', '');
+        $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
+        $dbname = multilicores_env('DB_NAME', '');
+        if ($dbname === '' || $username === '' || $password === '') {
+            throw new RuntimeException(
+                'APP_ENV=dev requiere DB_NAME, DB_USER y DB_PASS en sistema/config/.env.dev'
+            );
+        }
+    } else {
+        // Fallbacks = producción actual (Hostinger sin .env no cambia de base).
+        $host = multilicores_env('DB_HOST', 'localhost');
+        $port = (int)multilicores_env('DB_PORT', '3306');
+        $username = multilicores_env('DB_USER', 'u633742531_Multilicores25');
+        $password = multilicores_env('DB_PASS', 'Multilicores2025');
+        $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
+        $dbname = multilicores_env('DB_NAME', 'u633742531_Multilicores');
+    }
 
     return [
         'host' => $host,
@@ -79,5 +117,6 @@ function multilicores_db_config(): array
         'username' => $username,
         'password' => $password,
         'charset' => $charset,
+        'env' => $env,
     ];
 }
