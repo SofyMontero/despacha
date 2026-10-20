@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Bloquear acceso directo a controladores y modelos
+RewriteRule ^(controllers|models)/ - [F,L]
+
+# Redirigir todas las peticiones a index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]

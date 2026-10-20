@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">   
+	<link rel="stylesheet" href="./css/styleLogin.css"> 
+
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-icon">
+				<img src="./assets/img/logoM.png" alt="Logo">
+                <!-- <i class="fas fa-user-circle"></i> -->
+            </div>
+            <h2>Bienvenido</h2>
+        </div>
+        
+        <div class="login-form">
+            <form action="controllers/index.php" method="POST" id="login-form">
+                <div class="form-group">
+                    <label for="UserName">Usuario</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-user"></i>
+                        <input type="text" class="form-control" id="UserName" name="usuario" placeholder="Ingresa tu usuario" pattern="[a-zA-Z0-9]{1,35}" maxlength="35" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="UserPassword">Contraseña</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" class="form-control" id="UserPassword" name="clave" placeholder="Ingresa tu contraseña" maxlength="200" required>
+                    </div>
+                </div>
+                
+                <button type="submit" name="login" class="btn-login">INICIAR SESIÓN</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Mostrar mensaje de error si hay en la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('error')) {
+            alert(urlParams.get('error'));
+        }
+        
+        // Validación de formulario
+        document.getElementById("login-form").addEventListener("submit", function(e) {
+            const usuario = document.getElementById("UserName").value;
+            const clave = document.getElementById("UserPassword").value;
+            
+            if (!usuario || !clave) {
+                e.preventDefault(); // Evitar el envío del formulario
+                alert('Por favor, llena todos los campos.');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 400px;
+}
+
+.toast-notification {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border-left: 4px solid;
+    animation: slideIn 0.3s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.toast-success { border-left-color: #10b981; }
+.toast-error { border-left-color: #ef4444; }
+.toast-warning { border-left-color: #f59e0b; }
+
+.toast-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    vertical-align: top;
+}
+
+.toast-content {
+    display: inline-block;
+    width: calc(100% - 50px);
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #1f2937;
+}
+
+.toast-message {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.toast-close {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.toast-details {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f3f4f6;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.3;
+    animation: progress 5s linear;
+}
+
+@keyframes progress {
+    from { width: 100%; }
+    to { width: 0%; }
+}
+
+.upload-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    background: #fafafa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.upload-zone:hover {
+    border-color: #3b82f6;
+    background: #f8faff;
+}
+
+.upload-zone.dragover {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.upload-zone.is-processing {
+    pointer-events: none;
+    cursor: not-allowed;
+    opacity: 0.75;
+    border-color: #009688;
+    background: #f0fdfa;
+}
+
+#uploadForm {
+    position: relative;
+}
+
+#uploadProcessingOverlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: rgba(255, 255, 255, 0.78);
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #374151;
+    border-radius: 12px;
+}
+
+#uploadProcessingOverlay.is-active {
+    display: flex;
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: #9ca3af;
+    margin-bottom: 16px;
+}
+
+.file-input {
+    display: none;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 16px;
+    display: none;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #10b981);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #009688 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 10px;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    display: block;
+}
+
+.stat-label {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.template-download {
+    background: #f0fdfa;
+    border: 1px solid #99f6e4;
+    border-radius: 12px;
+    padding: 20px 16px;
+}
+
+.template-download .btn-outline-primary {
+    color: #009688;
+    border-color: #009688;
+}
+
+.template-download .btn-outline-primary:hover {
+    background: #009688;
+    border-color: #009688;
+    color: #fff;
+}
+
+#btnCrearProducto {
+    background: #009688;
+    border-color: #009688;
+}
+
+#btnCrearProducto:hover {
+    background: #00796b;
+    border-color: #00796b;
+}
+
+#crearProductoModal .modal-header .close {
+    opacity: 1;
+    text-shadow: none;
+}
+
+#crearProductoModal .form-group label {
+    font-weight: 500;
+    color: #374151;
+}
+
+.price-edit-wrap {
+    position: relative;
+    display: inline-block;
+    width: 110px;
+    vertical-align: middle;
+}
+
+.price-prefix {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    color: #9ca3af;
+    font-size: 13px;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.price-input.form-control,
+.price-input {
+    width: 110px !important;
+    max-width: 110px !important;
+    display: inline-block !important;
+    text-align: right;
+    background: #1f2937;
+    color: #f9fafb;
+    border: 1px solid #4b5563;
+    border-radius: 6px;
+    padding: 4px 8px 4px 20px !important;
+    margin: 0 !important;
+    float: none !important;
+}
+
+.price-input:focus {
+    background: #111827;
+    border-color: #009688;
+    box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.25);
+    color: #fff;
+    outline: none;
+}
+
+.producto-row.precio-modificado {
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.producto-row.precio-guardado {
+    background: rgba(16, 185, 129, 0.18);
+    transition: background 0.4s ease;
+}
+
+.btn-guardar-precio:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.btn-editar-producto {
+    white-space: nowrap;
+}
+
+#submitBtn:disabled,
+#submitBtn.disabled,
+#submitBtn.is-processing {
+    background-color: #9e9e9e !important;
+    background-image: none !important;
+    border-color: #9e9e9e !important;
+    color: #fff !important;
+    opacity: 0.7 !important;
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    filter: grayscale(1);
+}

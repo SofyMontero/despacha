@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# SPA fallback para React Router (basename /sistema/app)
+RewriteBase /sistema/app/
+
+# Si el archivo o carpeta existe, servirlo tal cual
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Todo lo demás a index.html
+RewriteRule ^ index.html [L]

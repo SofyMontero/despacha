@@ -1,0 +1,17 @@
+{
+    "name": "jose5/multilicores",
+    "autoload": {
+        "psr-4": {
+            "Jose5\\Multilicores\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "jarmandoR",
+            "email": "jose523a@gmail.com"
+        }
+    ],
+    "require": {
+        "phpoffice/phpspreadsheet": "^1.29"
+    }
+}

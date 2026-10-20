@@ -1,0 +1,6 @@
+RewriteEngine On
+RewriteBase /sistema/ops/
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /sistema/ops/index.html [L]

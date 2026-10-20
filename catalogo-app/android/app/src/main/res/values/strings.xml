@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Multilicores</string>
+    <string name="title_activity_main">Multilicores</string>
+    <string name="package_name">com.monteblanco.multilicores</string>
+    <string name="custom_url_scheme">com.monteblanco.multilicores</string>
+</resources>

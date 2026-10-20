@@ -1,0 +1,18 @@
+=============================
+Fecha: 2025-11-13 23:43:32
+Telefono: 3104449624
+Plantilla: pedido_recepcionado
+Texto: Valor total pedido $44.900 
+Data JSON Enviado: {"telefono":"3104449624","plantilla":"pedido_recepcionado","texto":"897","texto1":"Valor total pedido $44.900 "}
+Respuesta: {"success":"Mensaje enviado con \u00e9xito "}
+=============================
+
+=============================
+Fecha: 2025-11-13 23:51:48
+Telefono: 3104449624
+Plantilla: pedido_recepcionado
+Texto: Valor total pedido $65.250 
+Data JSON Enviado: {"telefono":"3104449624","plantilla":"pedido_recepcionado","texto":"898","texto1":"Valor total pedido $65.250 "}
+Respuesta: {"success":"Mensaje enviado con \u00e9xito "}
+=============================
+

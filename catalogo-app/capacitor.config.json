@@ -1,0 +1,20 @@
+{
+  "appId": "com.monteblanco.multilicores",
+  "appName": "Multilicores",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "url": "https://multilicoreschapinero.com/sistema/app/"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#1d4e89",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#1d4e89"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# Subir a Hostinger (Fase 0–1 Ops)
+
+1. Sube el contenido de esta carpeta respetando rutas bajo public_html (o donde viva /sistema/).
+2. Verifica: https://TU-DOMINIO/sistema/api/ops/index.php
+3. Verifica: https://TU-DOMINIO/sistema/api/ops/schema.php
+4. Backup BD → ejecuta sistema/sql/002_variante_b_fase1_empresas_roles.sql
+5. Reabre schema.php hasta fase1Listo=true
+6. Prueba login: /sistema/ops/
+
+No subir: .env con secretos, node_modules, admin-app/src (ya va el build en sistema/ops/).
