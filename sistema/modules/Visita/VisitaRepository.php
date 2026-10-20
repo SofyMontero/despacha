@@ -19,7 +19,7 @@ class VisitaRepository
         if ($pdo) {
             $this->pdo = $pdo;
         } else {
-            $db = new Database('ops');
+            $db = new Database();
             $this->pdo = $db->connect();
         }
     }
@@ -127,7 +127,7 @@ class VisitaRepository
     private function assertEsquema(): void
     {
         if (!$this->esquemaListo()) {
-            throw new Exception('Falta tabla visitas. Ejecuta sistema/sql/003_variante_b_fase2_jornadas_visitas.sql');
+            throw new Exception('Falta tabla visitas. Ejecuta sistema/sql/003_jornadas_visitas.sql');
         }
     }
 

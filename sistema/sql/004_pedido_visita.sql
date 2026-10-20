@@ -1,5 +1,5 @@
 -- =============================================================================
--- Variante B · Fase 3 — Pedido originado en visita (ADITIVO)
+-- Fase 3 — Pedido originado en visita (ADITIVO)
 -- NO ejecutar hasta tener Fase 1 + 2 migradas.
 -- NO modifica ni elimina columnas existentes.
 -- =============================================================================

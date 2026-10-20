@@ -1,14 +1,12 @@
 <?php
 /**
- * Credenciales de base de datos (Variante A y B).
+ * Credenciales de base de datos.
  *
  * Prioridad:
  * 1) Variables de entorno / .env (recomendado)
  * 2) Fallback a los valores actuales de producción (Hostinger)
  *
- * Preparado para DB independiente por variante:
- *   DB_NAME       → conexión por defecto (hoy: misma BD)
- *   DB_NAME_OPS   → futura BD de Variante B (si no existe, usa DB_NAME)
+ * Una sola base para catálogo, admin y operaciones.
  */
 
 function multilicores_load_dotenv(string $path): void
@@ -56,7 +54,7 @@ function multilicores_env(string $key, ?string $default = null): ?string
 /**
  * @return array{host:string,port:int,dbname:string,username:string,password:string,charset:string}
  */
-function multilicores_db_config(string $variant = 'default'): array
+function multilicores_db_config(): array
 {
     static $loaded = false;
     if (!$loaded) {
@@ -72,11 +70,7 @@ function multilicores_db_config(string $variant = 'default'): array
     $username = multilicores_env('DB_USER', 'u633742531_Multilicores25');
     $password = multilicores_env('DB_PASS', 'Multilicores2025');
     $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
-
-    $dbnameDefault = multilicores_env('DB_NAME', 'u633742531_Multilicores');
-    $dbnameOps = multilicores_env('DB_NAME_OPS', $dbnameDefault);
-
-    $dbname = ($variant === 'ops') ? $dbnameOps : $dbnameDefault;
+    $dbname = multilicores_env('DB_NAME', 'u633742531_Multilicores');
 
     return [
         'host' => $host,

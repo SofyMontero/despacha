@@ -1,23 +1,21 @@
-# Módulos Variante B
+# Módulos de operaciones
 
-Dominio nuevo de la plataforma. **No reemplaza** `sistema/models/` ni el admin PHP de Variante A.
+Dominio de jornadas, visitas, entregas, empresas y roles. Misma aplicación y misma base que `sistema/models/`.
 
 ## Reglas
 
-- Código de negocio nuevo vive aquí (jornadas, visitas, entregas, tracking, empresas).
-- La API pública de estos módulos entra por `sistema/api/ops/`.
-- No modificar contratos de `sistema/api/*.php` (catálogo actual).
-- Preferir clases pequeñas por dominio; no un “god module”.
+- El código de este dominio vive aquí.
+- La API entra por `sistema/api/ops/`.
+- Preferir clases pequeñas por dominio.
 
-## Dominios previstos (aún no implementados)
+## Dominios
 
 | Carpeta | Responsabilidad |
 |---------|-----------------|
 | `Empresa/` | Organizaciones / modelo de negocio |
-| `Auth/` | Login ops, token, RBAC |
+| `Auth/` | Login de operaciones, token, RBAC |
 | `Jornada/` | Turnos del paseador |
 | `Visita/` | Visitas a tienda (con o sin pedido) |
-| `Entrega/` | Logística domiciliario ≠ pedido |
-| `Tracking/` | Persistencia GPS (infra compartida) |
-
-Las carpetas se crean cuando arranque cada fase, no de antemano vacías sin uso.
+| `PedidoOps/` | Pedido creado desde una visita |
+| `Entrega/` | Logística del domiciliario |
+| `Tracking/` | Persistencia GPS (aún no implementado) |

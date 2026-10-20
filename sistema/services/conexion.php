@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/database.env.php';
 
-$cfg = multilicores_db_config('default');
+$cfg = multilicores_db_config();
 $servername = $cfg['host'];
 $username = $cfg['username'];
 $password = $cfg['password'];

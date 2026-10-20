@@ -1,6 +1,6 @@
 <?php
 /**
- * Pedido originado en visita de paseador (Variante B).
+ * Pedido originado en visita de paseador.
  * POST action=crear
  * Body: idVisita, productos[], total, fechaEntregaAcordada, observaciones?
  */

@@ -5,20 +5,12 @@ class Database {
     /** @var PDO|null Una sola conexión PDO por petición (Hostinger limita las concurrentes). */
     private static $pdo = null;
 
-    /** Variante de DSN: default | ops (hoy suelen ser la misma BD). */
-    private $variant;
-
-    public function __construct(string $variant = 'default')
-    {
-        $this->variant = $variant === 'ops' ? 'ops' : 'default';
-    }
-
     public function connect() {
         if (self::$pdo instanceof PDO) {
             return self::$pdo;
         }
 
-        $cfg = multilicores_db_config($this->variant);
+        $cfg = multilicores_db_config();
 
         $options = [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

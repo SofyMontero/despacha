@@ -16,7 +16,7 @@ try {
             ];
         }, $rows),
         'hint' => empty($rows)
-            ? 'Tabla roles vacía o no migrada. Revisa sistema/sql/002_variante_b_fase1_empresas_roles.sql'
+            ? 'Tabla roles vacía o no migrada. Revisa sistema/sql/002_empresas_roles.sql'
             : null,
     ]);
 } catch (Exception $e) {

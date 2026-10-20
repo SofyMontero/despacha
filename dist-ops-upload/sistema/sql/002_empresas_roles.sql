@@ -1,5 +1,5 @@
 -- =============================================================================
--- Variante B · Fase 1 — Empresas + roles (ADITIVO)
+-- Fase 1 — Empresas + roles (ADITIVO)
 -- NO ejecuta DROP / RENAME / cambios destructivos.
 -- Si una columna o fila ya existe, omite esa sentencia y continúa.
 -- Revisar en phpMyAdmin antes de correr en producción.
@@ -68,7 +68,7 @@ ALTER TABLE users
   ADD COLUMN id_rol INT NULL COMMENT 'FK roles.id_rol';
 
 ALTER TABLE users
-  ADD COLUMN ops_api_token VARCHAR(64) NULL COMMENT 'Token API ops Variante B';
+  ADD COLUMN ops_api_token VARCHAR(64) NULL COMMENT 'Token API de operaciones';
 
 -- Backfill suave (no masivo destructivo): empresa default
 UPDATE users SET id_empresa = 1 WHERE id_empresa IS NULL;

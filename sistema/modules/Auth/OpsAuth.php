@@ -1,6 +1,6 @@
 <?php
 /**
- * Autenticación por token para API ops (Variante B).
+ * Autenticación por token para la API de operaciones.
  * Independiente de $_SESSION["usuario"] del admin PHP.
  */
 
@@ -16,7 +16,7 @@ class OpsAuth
         if ($pdo) {
             $this->pdo = $pdo;
         } else {
-            $db = new Database('ops');
+            $db = new Database();
             $this->pdo = $db->connect();
         }
     }

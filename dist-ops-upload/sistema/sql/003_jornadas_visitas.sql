@@ -1,5 +1,5 @@
 -- =============================================================================
--- Variante B · Fase 2 — Jornadas y visitas (ADITIVO)
+-- Fase 2 — Jornadas y visitas (ADITIVO)
 -- NO ejecutar hasta cerrar Fase 1 (empresas/roles + login ops).
 -- NO hace DROP / RENAME / cambios destructivos.
 -- =============================================================================

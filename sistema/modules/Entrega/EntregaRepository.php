@@ -1,7 +1,7 @@
 <?php
 /**
- * Entregas de pedidos (Variante B).
- * Requiere tablas de 005_variante_b_fase4_entregas.sql
+ * Entregas de pedidos.
+ * Requiere tablas de 005_entregas.sql
  *
  * Entrega ≠ Pedido. Un pedido aceptado queda disponible; la fila en
  * `entregas` nace cuando un domiciliario la toma o el admin la asigna.
@@ -40,7 +40,7 @@ class EntregaRepository
         if ($pdo) {
             $this->pdo = $pdo;
         } else {
-            $db = new Database('ops');
+            $db = new Database();
             $this->pdo = $db->connect();
         }
     }
@@ -404,7 +404,7 @@ class EntregaRepository
     private function assertEsquema(): void
     {
         if (!$this->esquemaListo()) {
-            throw new Exception('Faltan tablas de entregas. Ejecuta sistema/sql/005_variante_b_fase4_entregas.sql');
+            throw new Exception('Faltan tablas de entregas. Ejecuta sistema/sql/005_entregas.sql');
         }
     }
 

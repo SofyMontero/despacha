@@ -1,5 +1,5 @@
 -- =============================================================================
--- Variante B · Fase 4 — Entregas y domiciliario (ADITIVO)
+-- Fase 4 — Entregas y domiciliario (ADITIVO)
 -- NO ejecutar hasta tener Fase 3 migrada y OK explícito.
 -- NO modifica tablas existentes. Solo crea tablas nuevas.
 --

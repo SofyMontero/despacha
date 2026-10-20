@@ -23,7 +23,7 @@ try {
 
     if (!$repo->esquemaListo()) {
         ops_error('Tablas de entregas no migradas aún', 503, [
-            'sql' => 'sistema/sql/005_variante_b_fase4_entregas.sql',
+            'sql' => 'sistema/sql/005_entregas.sql',
         ]);
     }
 

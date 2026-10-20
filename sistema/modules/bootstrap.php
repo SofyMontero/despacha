@@ -1,7 +1,7 @@
 <?php
 /**
- * Bootstrap de módulos Variante B (ops).
- * No altera el bootstrap de sistema/api/ (catálogo A).
+ * Bootstrap de módulos de operaciones (jornadas, visitas, entregas).
+ * Misma base y misma aplicación que el catálogo.
  */
 
 require_once __DIR__ . '/../models/database.php';

@@ -47,9 +47,9 @@ export default function LoginPage() {
   return (
     <div className="ops-login">
       <form className="ops-login__panel" onSubmit={onSubmit}>
-        <p className="ops-eyebrow">Variante B</p>
+        <p className="ops-eyebrow">Operaciones</p>
         <h1>Ops Multilicores</h1>
-        <p className="ops-muted">Centro de operaciones (paralelo al admin PHP).</p>
+        <p className="ops-muted">Centro de operaciones.</p>
         {schema && (
           <p className={schema.fase1Listo ? 'ops-muted' : 'ops-error'}>
             {schema.fase1Listo

@@ -33,7 +33,7 @@ try {
 
     if ($action === 'logout' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = ops_require_auth();
-        $pdo = (new Database('ops'))->connect();
+        $pdo = (new Database())->connect();
         $stmt = $pdo->prepare('UPDATE users SET ops_api_token = NULL WHERE id = ?');
         $stmt->execute([(int)$user['id']]);
         ops_json(['ok' => true]);

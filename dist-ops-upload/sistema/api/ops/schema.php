@@ -8,7 +8,7 @@
 require_once __DIR__ . '/bootstrap.php';
 
 try {
-    $db = new Database('ops');
+    $db = new Database();
     $pdo = $db->connect();
 
     $checks = [
@@ -45,7 +45,7 @@ try {
         'ok' => true,
         'fase1Listo' => $listos,
         'checks' => $checks,
-        'sql' => 'sistema/sql/002_variante_b_fase1_empresas_roles.sql',
+        'sql' => 'sistema/sql/002_empresas_roles.sql',
         'nota' => $listos
             ? 'Esquema Fase 1 completo. Puedes probar login ops.'
             : 'Faltan piezas. Ejecuta el SQL de Fase 1 en phpMyAdmin (con backup).',

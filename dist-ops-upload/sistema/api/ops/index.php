@@ -4,7 +4,6 @@ require_once __DIR__ . '/bootstrap.php';
 ops_json([
     'ok' => true,
     'name' => 'Multilicores Ops API',
-    'variant' => 'B',
     'version' => '0.1.0',
     'endpoints' => [
         'GET  /ops/index.php',
@@ -19,9 +18,11 @@ ops_json([
         'GET  /ops/visitas.php?action=por_jornada&idJornada=',
         'POST /ops/visitas.php  action=registrar',
         'POST /ops/pedido_visita.php action=crear',
+        'GET  /ops/entregas.php?action=disponibles|mias|listar&estado=|detalle&idEntrega=|domiciliarios',
+        'POST /ops/entregas.php  action=tomar|asignar|estado',
     ],
 
 
 
-    'note' => 'No modifica contratos de /sistema/api/ del catálogo (Variante A).',
+    'note' => 'API de operaciones de la misma aplicación y la misma base de datos.',
 ]);

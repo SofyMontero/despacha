@@ -1,16 +1,23 @@
-# Variante B — Propuesta y control de cambios
+# Migración — control de cambios
 
-Documento de control. **No implica que los cambios ya estén aplicados.**  
-Cada ítem se marca solo cuando ese cambio concreto esté hecho y revisado.
+Documento de control. Cada ítem se marca solo cuando ese cambio concreto esté hecho y revisado.
 
-Referencia visual: canvas `variante-b-arquitectura` en Cursor.
+## Decisión 2026-10-19 — una sola versión
+
+Este repositorio es el producto único. No hay Variante A ni Variante B, ni una segunda base de datos.
+
+- Catálogo, admin PHP, admin React y operaciones usan `DB_NAME`.
+- `DB_NAME_OPS` y `new Database('ops')` quedaron retirados.
+- `/sistema/api/ops/` sigue siendo la ruta de operaciones (jornadas, visitas, entregas), dentro de la misma aplicación.
+- El interruptor PHP/React del catálogo cliente (`sistema/config/catalogo.php`) sigue existiendo. No forma parte de esta unificación.
 
 ---
 
-## Decisiones base (aprobar antes de código)
+## Decisiones base
 
-- [x] Prefijo API nueva: `/sistema/api/ops/` *(asumido al iniciar Fase 0; confirmar o corregir)*
-- [x] Admin React: `/sistema/ops/` (PHP admin sigue vivo) *(asumido; confirmar o corregir)*
+- [x] Prefijo API de operaciones: `/sistema/api/ops/`
+- [x] Admin React: `/sistema/ops/` (el admin PHP sigue en `sistema/views/`)
+- [x] Una sola base de datos
 - [x] Empresa default `id=1` Multilicores; columnas `id_empresa` nullable + backfill
 - [x] Factura real en `entregas.num_factura` (no reutilizar `ped_numfac`)
 - [ ] Validar tabla `roles` en phpMyAdmin antes de migrar (ampliar, no recrear) — **pendiente en BD**
@@ -22,9 +29,9 @@ Referencia visual: canvas `variante-b-arquitectura` en Cursor.
 ## Reglas de ejecución
 
 1. Un cambio pequeño por turno; esperar OK del usuario antes del siguiente.
-2. No modificar contratos de `sistema/api/pedido.php`, `cliente.php`, etc.
-3. No cambiar comportamiento de `sistema/views/solicitudes.php` salvo aditivo documentado.
-4. BD: solo tablas/columnas/índices nuevos; documentar SQL antes de ejecutar.
+2. Una sola base. No volver a separar conexión ni esquema por “variante”.
+3. El contrato de `sistema/api/pedido.php` y `cliente.php` se cambia solo junto con la pantalla que lo usa.
+4. BD: documentar SQL antes de ejecutar. Preferir tablas y columnas nuevas.
 5. Credenciales: preparar env/fallback; no dejar secretos nuevos hardcodeados.
 
 ---
@@ -40,7 +47,7 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 - [x] Scaffold `admin-app/` (Vite React) con deploy target `/sistema/ops/`
 - [x] Documentar en este archivo qué se tocó y qué no
 
-**Criterio de cierre:** Variante A sigue igual; `/sistema/api/ops/` responde health; admin PHP intacto.  
+**Criterio de cierre:** `/sistema/api/ops/` responde health; admin PHP intacto.  
 **Estado:** Fase 0 **cerrada en código** (verificado en disco 2026-10-07).
 
 ---
@@ -48,19 +55,19 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 ## Fase 1 — Empresas + roles/permisos
 
 - [ ] Validar esquema actual `roles` / `users.rol` en BD **(acción manual en phpMyAdmin)**
-- [x] SQL aditivo documentado: `sistema/sql/002_variante_b_fase1_empresas_roles.sql`
+- [x] SQL aditivo documentado: `sistema/sql/002_empresas_roles.sql`
 - [x] Código catálogo roles / empresas / auth ops en `modules/` + `api/ops/` (graceful si falta tabla)
 - [x] Ejecutar SQL en Hostinger (usuario, 2026-10-11)
 - [x] Probar login ops end-to-end (usuario, 2026-10-11)
 - [x] Seed empresa Multilicores `id=1` (incluido en SQL)
 
-**Criterio de cierre:** un usuario ops puede autenticarse; A no cambia.
+**Criterio de cierre:** un usuario de operaciones puede autenticarse.
 
 ---
 
 ## Fase 2 — Jornadas y visitas
 
-- [x] SQL documentado: `sistema/sql/003_variante_b_fase2_jornadas_visitas.sql`
+- [x] SQL documentado: `sistema/sql/003_jornadas_visitas.sql`
 - [x] Ejecutar SQL (usuario, 2026-10-11)
 - [x] Prueba en producción: visitas OK (usuario, 2026-10-11)
 - [x] API ops jornadas: iniciar/finalizar/actual/listar (`api/ops/jornadas.php`) — local
@@ -69,13 +76,13 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 - [x] Pantallas paseador (mínimo): jornada + visita sin pedido (`/paseador`) — local
 - [x] Admin ops: listar jornadas de hoy en shell — local
 
-**Criterio de cierre:** visita sin pedido funciona end-to-end en B (tras SQL 002+003 en Hostinger).
+**Criterio de cierre:** visita sin pedido funciona end-to-end (tras SQL 002+003 en Hostinger).
 
 ---
 
 ## Fase 3 — Pedidos desde visita
 
-- [x] SQL documentado: `004_variante_b_fase3_pedido_visita.sql`
+- [x] SQL documentado: `004_pedido_visita.sql`
 - [x] Ejecutar SQL (usuario, 2026-10-11)
 - [x] Prueba en producción: pedido desde visita OK (usuario, 2026-10-11)
 - [x] `POST /ops/pedido_visita.php` (PedidoDesdeVisita → Pedido::crearPedido) — local
@@ -84,14 +91,14 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 
 
 
-**Criterio de cierre:** pedido catálogo A sigue igual; pedido desde visita queda trazable.
+**Criterio de cierre:** el pedido del catálogo sigue igual; el pedido desde visita queda trazable.
 
 ---
 
 ## Fase 4 — Entregas y domiciliario
 
 - [x] Decisiones (usuario, 2026-10-11): al pasar a `salio` → `ped_estado='enviado'`; estados extra `no_entregado` y `cancelado` (con motivo); disponible apenas el pedido está aceptado
-- [x] SQL documentado: `005_variante_b_fase4_entregas.sql` (`entregas` + `entrega_eventos`) — **NO ejecutado**
+- [x] SQL documentado: `005_entregas.sql` (`entregas` + `entrega_eventos`) — **NO ejecutado**
 - [ ] Ejecutar SQL (tras OK)
 - [ ] Estados: disponible → aceptado → salio → en_camino → entregado (+ no_entregado / cancelado)
 - [x] API ops domiciliario + asignación admin (`modules/Entrega/EntregaRepository.php`, `api/ops/entregas.php`) — local, sin probar
@@ -99,7 +106,7 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 - [ ] Separación clara Pedido ≠ Entrega
 - [ ] UI domiciliario mínima
 
-**Criterio de cierre:** entrega operativa en B sin tocar flujo `enviado` de A (o convivencia documentada).
+**Criterio de cierre:** entrega operativa. Al pasar a `salio`, el pedido queda `enviado`.
 
 ---
 
@@ -136,9 +143,9 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 
 ## Fase 9 — Pruebas y corte gradual
 
-- [ ] Checklist regresión Variante A
-- [ ] Preparar DB B opcional vía env
-- [ ] Plan de activación ops como admin principal
+- [ ] Checklist de regresión del catálogo y del admin
+- [x] Una sola base de datos (sin `DB_NAME_OPS`)
+- [ ] Plan de activación del admin de operaciones como admin principal
 
 ---
 
@@ -150,7 +157,8 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 | 2026-10-07 | 0.2 | getenv + fallback (ya en árbol) | `config/database.env.php`, `models/database.php`, `services/conexion.php` | No (fallback = mismos valores) | Verificado en disco |
 | 2026-10-07 | 0.3 | Carpeta módulos B | `sistema/modules/README.md` | No | Pendiente revisión |
 | 2026-10-07 | 0.4–0.5 | Ops API + admin-app (ya en árbol) | `api/ops/*`, `admin-app/`, `sistema/ops/` | No | Verificado en disco |
-| 2026-10-07 | 1 (docs) | SQL Fase 1 listo, sin ejecutar | `sql/002_variante_b_fase1_empresas_roles.sql` | Solo si se corre en BD | **Esperando OK** |
+| 2026-10-07 | 1 (docs) | SQL Fase 1 listo, sin ejecutar | `sql/002_empresas_roles.sql` | Solo si se corre en BD | **Esperando OK** |
+| 2026-10-19 | — | Una sola versión: misma BD, sin Variante B | `database.env.php`, `models/database.php`, módulos, `sql/*.sql` | No cambia datos | Hecho en este repo |
 
 ---
 
@@ -167,7 +175,7 @@ Objetivo: estructura y configuración, **sin lógica de negocio**.
 
 1. Sube `dist-ops-upload/sistema/` a Hostinger (misma ruta `/sistema/`).
 2. Abre `/sistema/api/ops/index.php` y `/sistema/api/ops/schema.php`.
-3. Backup BD + SQL `002_variante_b_fase1_empresas_roles.sql`.
+3. Backup BD + SQL `002_empresas_roles.sql` si Fase 1 aún no está aplicada.
 4. `schema.php` → `fase1Listo: true`.
 5. Login en `/sistema/ops/`.
 

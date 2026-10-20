@@ -4,7 +4,6 @@ require_once __DIR__ . '/bootstrap.php';
 ops_json([
     'ok' => true,
     'name' => 'Multilicores Ops API',
-    'variant' => 'B',
     'version' => '0.1.0',
     'endpoints' => [
         'GET  /ops/index.php',
@@ -25,5 +24,5 @@ ops_json([
 
 
 
-    'note' => 'No modifica contratos de /sistema/api/ del catálogo (Variante A).',
+    'note' => 'API de operaciones de la misma aplicación y la misma base de datos.',
 ]);

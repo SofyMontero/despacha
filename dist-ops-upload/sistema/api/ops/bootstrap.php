@@ -1,7 +1,7 @@
 <?php
 /**
- * Bootstrap API ops (Variante B).
- * Separado de sistema/api/bootstrap.php del catálogo.
+ * Bootstrap de la API de operaciones.
+ * Comparte la base de datos con el catálogo.
  */
 
 header('Content-Type: application/json; charset=utf-8');

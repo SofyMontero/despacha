@@ -17,7 +17,7 @@ class PedidoDesdeVisita
         if ($pdo) {
             $this->pdo = $pdo;
         } else {
-            $db = new Database('ops');
+            $db = new Database();
             $this->pdo = $db->connect();
         }
     }
