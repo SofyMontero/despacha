@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Despacha.Migrator</RootNamespace>
+    <UserSecretsId>despacha-migrator-local</UserSecretsId>
   </PropertyGroup>
 
 </Project>

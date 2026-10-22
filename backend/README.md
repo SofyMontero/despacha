@@ -18,6 +18,16 @@ dotnet run --project src/Despacha.Api
 
 Pruebas: `dotnet test` (usan SQLite en memoria y dobles; no se conectan a servicios reales).
 
+## Esquema heredado TEST (solo lectura, pendiente de autorización)
+
+Está separado de la base de control: lo usa solo `Despacha.Migrator`, nunca la API.
+
+```powershell
+dotnet user-secrets --project src/Despacha.Migrator set "ConnectionStrings:LegacyTest" "Server=<host TEST>;Port=3306;Database=<esquema TEST>;User ID=<usuario solo lectura>;Password=<clave>"
+```
+
+Se recomienda un usuario MySQL con permiso `SELECT` únicamente.
+
 ## Ambientes y bloqueos
 
 | `Despacha:Environment` | Host ASP.NET | Bases permitidas |
