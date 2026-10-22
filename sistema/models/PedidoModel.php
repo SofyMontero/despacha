@@ -1,5 +1,7 @@
 
 <?php
+require_once __DIR__ . '/../config/database.env.php';
+
 class Pedido
 {
     private $db;
@@ -404,7 +406,12 @@ class Pedido
     }
     public function enviarConfirmacion($idPromo, $descripcion, $imagen, $telefono, $plantilla): array
     {
-        $url = "https://multilicoreschapinero.com/sistema/services/enviarWhatsapp.php";
+        $internalToken = despacha_internal_token();
+        if (!despacha_servicios_reales_habilitados() || $internalToken === null) {
+            despacha_registrar_bloqueo('Envío interno de WhatsApp');
+            return [['cliente' => $telefono, 'telefono' => $telefono, 'resultado' => 'bloqueado']];
+        }
+        $url = despacha_base_url() . "/sistema/services/enviarWhatsapp.php";
 
         $data = [
             'telefono' => $telefono,
@@ -425,7 +432,7 @@ class Pedido
             CURLOPT_POSTFIELDS => $data_json,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer Multilicoreslicor25'
+                'Authorization: Bearer ' . $internalToken
             ],
         ]);
 

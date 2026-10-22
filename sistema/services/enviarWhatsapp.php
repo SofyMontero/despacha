@@ -25,12 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-// Definir el token esperado (almacenado de forma segura en producción)
-$expectedToken = "Multilicoreslicor25";
+require_once __DIR__ . '/../config/database.env.php';
+
+$expectedToken = despacha_internal_token();
 
 // Verificar el encabezado Authorization
 $headers = getallheaders();
-if (!isset($headers['Authorization']) || $headers['Authorization'] !== "Bearer $expectedToken") {
+if ($expectedToken === null || !isset($headers['Authorization']) || !hash_equals("Bearer $expectedToken", (string)$headers['Authorization'])) {
     echo json_encode(['error' => 'Acceso no autorizado. Token inválido.']);
     http_response_code(401); // Código de error para acceso no autorizado
     exit;
@@ -130,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 [
                                     "type" => "image",
                                     "image" => [
-                                        "link" => "https://multilicoreschapinero.com/sistema/uploads/" . $imagen1
+                                        "link" => despacha_base_url() . "/sistema/uploads/" . $imagen1
                                     ]
                                 ]
                             ]
@@ -241,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     [
                                         "type" => "image",
                                         "image" => [
-                                            "link" => "https://multilicoreschapinero.com/sistema/uploads/$imagen"  // URL pública de la imagen
+                                            "link" => despacha_base_url() . "/sistema/uploads/$imagen"  // URL pública de la imagen
                                         ]
                                     ]
                                 ]
@@ -416,15 +417,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     }
 
-        // TOKEN QUE NOS DA FACEBOOK
-        $token = 'EAAhhlSyrHkMBOxLZBq1IkxTs3A8O1yUJWOtk58j0BUv7eUHemP3P6lzWRUE9LohfAqdC9um6yjihIsof6ZARhb1ZBlJ7YZC0E0j4LAWHr77DkLD50KaKVPqGjwazQ6FJ8JRolfZBGtrdAAx8ZAVZCoDMi7uLZBgddffFCKKLx7mrfjck6P0P27wFbn1ewwqUkwpkkAZDZD';
-
-        // IDENTIFICADOR DE NÚMERO DE TELÉFONO
-         $telefonoID = '599178349953891';
-        // $telefonoID = '430240436843311';
-
-        // URL A DONDE SE MANDARÁ EL MENSAJE
-        $url = 'https://graph.facebook.com/v22.0/' . $telefonoID . '/messages';
+        $wa = despacha_whatsapp_config();
+        if ($wa === null) {
+            despacha_registrar_bloqueo('WhatsApp Cloud API');
+            http_response_code(503);
+            echo json_encode(['error' => 'Envío de WhatsApp deshabilitado en este entorno']);
+            exit;
+        }
+        $token = $wa['token'];
+        $url = $wa['url'];
             // Cabeceras para la solicitud
         $header = array(
             "Authorization: Bearer " . $token,
@@ -461,12 +462,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => 'Mensaje enviado con éxito ']);
             // file_put_contents('alertas_log.txt', "Mensaje tipo ".$tipo_alerta." para telefono ".$telefonoCliente." guia numero ".$numeroGuia." fecha ".$fechaHoraColombia." \n", FILE_APPEND);
             
-            // $servername = "localhost";
-            // $username = "u713516042_jose2";
-            // $password = "Dobarli23@transmillas";
-            // $dbname = "u713516042_transmillas2";
-            // Create connection
-            // $conn = new mysqli($servername, $username, $password, $dbname);
+            // $conn = new mysqli(...);
 
             //INSERTAMOS LOS REGISTROS DEL ENVIO DEL WHATSAPP
             // $sql = "INSERT INTO registro "

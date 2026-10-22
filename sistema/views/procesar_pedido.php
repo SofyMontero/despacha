@@ -525,7 +525,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['ok'], $_GET['token'])) 
 
                 if (segundos <= 0) {
                     clearInterval(intervalo);
-                    window.location.replace("https://multilicoreschapinero.com/sistema/views/categorias.php?idCli=" + encodeURIComponent(numCliente));
+                    window.location.replace("categorias.php?idCli=" + encodeURIComponent(numCliente));
                 }
             }, 1000);
         </script>

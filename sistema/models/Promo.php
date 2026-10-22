@@ -141,6 +141,11 @@ class Promo {
     }
 
     public function enviarPromo($idPromo, $descripcion, $imagen): array {
+        $internalToken = despacha_internal_token();
+        if (!despacha_servicios_reales_habilitados() || $internalToken === null) {
+            despacha_registrar_bloqueo('Envío masivo de promociones');
+            return [];
+        }
         $clientes = $this->getClientes();
         $resultados = [];
 
@@ -148,7 +153,7 @@ class Promo {
             $telefono = $cliente['cli_telefono'];
 
             if (preg_match('/^\d{10}$/', $telefono)) {
-                $url = "https://multilicoreschapinero.com/sistema/services/enviarWhatsapp.php";
+                $url = despacha_base_url() . "/sistema/services/enviarWhatsapp.php";
 
                 $data = [
                     'telefono' => $telefono,
@@ -166,7 +171,7 @@ class Promo {
                     CURLOPT_POSTFIELDS => json_encode($data),
                     CURLOPT_HTTPHEADER => [
                         'Content-Type: application/json',
-                        'Authorization: Bearer Multilicoreslicor25'
+                        'Authorization: Bearer ' . $internalToken
                     ],
                 ]);
 

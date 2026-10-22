@@ -2,3 +2,7 @@
 .env
 .env.*
 !.env.example
+
+# Logs locales del PHP de referencia (pueden contener teléfonos y mensajes).
+sistema/**/log*.txt
+sistema/**/*_log.txt

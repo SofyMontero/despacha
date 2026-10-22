@@ -3,8 +3,7 @@
   "appName": "Multilicores",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https",
-    "url": "https://multilicoreschapinero.com/sistema/app/"
+    "androidScheme": "https"
   },
   "plugins": {
     "SplashScreen": {

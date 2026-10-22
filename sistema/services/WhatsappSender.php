@@ -1,6 +1,8 @@
 <?php
 // WhatsappSender.php
 
+require_once __DIR__ . '/../config/database.env.php';
+
 class WhatsappSender {
     private $conn;
     private $logFile = 'whatsapp_log.txt';
@@ -30,9 +32,14 @@ class WhatsappSender {
         }
 
         if ($cantidad == 0) {
-            $token = 'EAAhhlSyrHkMBOxLZBq1IkxTs3A8O1yUJWOtk58j0BUv7eUHemP3P6lzWRUE9LohfAqdC9um6yjihIsof6ZARhb1ZBlJ7YZC0E0j4LAWHr77DkLD50KaKVPqGjwazQ6FJ8JRolfZBGtrdAAx8ZAVZCoDMi7uLZBgddffFCKKLx7mrfjck6P0P27wFbn1ewwqUkwpkkAZDZD';
-            $telefonoID = '599178349953891';
-            $url = 'https://graph.facebook.com/v22.0/' . $telefonoID . '/messages';
+            $wa = despacha_whatsapp_config();
+            if ($wa === null) {
+                despacha_registrar_bloqueo('WhatsApp Cloud API');
+                $this->log("Envío bloqueado: servicios reales deshabilitados.");
+                return;
+            }
+            $token = $wa['token'];
+            $url = $wa['url'];
 
             if ($tipo==1) {
 

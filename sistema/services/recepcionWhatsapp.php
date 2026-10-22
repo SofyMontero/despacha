@@ -9,9 +9,12 @@ function write_log($contenido) {
     file_put_contents("log_webhook.txt", "[$fechatiempo] $contenido\n", FILE_APPEND);
 }
 
+require_once __DIR__ . '/../config/database.env.php';
+
 // VALIDAR WEBHOOK
-$token = 'Multilicoreslicor25';
-if (isset($_GET['hub_verify_token']) && $_GET['hub_verify_token'] === $token) {
+multilicores_bootstrap_env();
+$token = multilicores_env('WHATSAPP_VERIFY_TOKEN');
+if ($token !== null && isset($_GET['hub_verify_token']) && hash_equals($token, (string)$_GET['hub_verify_token'])) {
     echo $_GET['hub_challenge'];
     write_log("Webhook verificado correctamente.");
     exit;

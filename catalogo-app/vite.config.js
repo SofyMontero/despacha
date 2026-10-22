@@ -92,14 +92,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/sistema/api': {
-        target: 'https://multilicoreschapinero.com',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost',
         changeOrigin: true,
-        secure: true,
       },
       '/sistema/assets': {
-        target: 'https://multilicoreschapinero.com',
+        target: process.env.VITE_PROXY_TARGET || 'http://localhost',
         changeOrigin: true,
-        secure: true,
       },
     },
   },

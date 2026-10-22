@@ -1,17 +1,14 @@
 <?php
 /**
- * Credenciales de base de datos por ambiente.
+ * Configuración por ambiente del repositorio de migración.
  *
- * APP_ENV=prod (dominio principal, sin archivos .env)
- *   → base de producción.
- *
- * APP_ENV=dev, o el host despacha.multilicoreschapinero.com
- *   → base de test u633742531_Multi_test.
- *
- * Prioridad:
+ * Todos los valores salen de archivos .env locales (no versionados):
  * 1) sistema/.env y sistema/config/.env (definen APP_ENV)
- * 2) sistema/config/.env.prod o sistema/config/.env.dev
- * 3) Fallback de producción solo si APP_ENV=prod
+ * 2) sistema/config/.env.<APP_ENV>
+ *
+ * No hay credenciales por defecto. Sin APP_ENV explícito se usa "dev".
+ * Las conexiones a servicios reales (bases remotas, WhatsApp Cloud API)
+ * están bloqueadas salvo ALLOW_REAL_SERVICES=1.
  */
 
 function multilicores_load_dotenv(string $path): void
@@ -77,24 +74,62 @@ function multilicores_bootstrap_env(): void
 function multilicores_resolve_app_env(): string
 {
     $explicit = strtolower((string)multilicores_env('APP_ENV', ''));
-    if ($explicit === 'dev' || $explicit === 'prod') {
-        return $explicit;
-    }
-
-    $httpHost = strtolower((string)($_SERVER['HTTP_HOST'] ?? ''));
-    $httpHost = preg_replace('/:\d+$/', '', $httpHost);
-    if ($httpHost === 'despacha.multilicoreschapinero.com') {
-        return 'dev';
-    }
-
-    return 'prod';
+    return $explicit === 'prod' ? 'prod' : 'dev';
 }
 
 function multilicores_app_env(): string
 {
     multilicores_bootstrap_env();
-    $env = strtolower((string)multilicores_env('APP_ENV', 'prod'));
-    return $env === 'dev' ? 'dev' : 'prod';
+    $env = strtolower((string)multilicores_env('APP_ENV', 'dev'));
+    return $env === 'prod' ? 'prod' : 'dev';
+}
+
+function despacha_servicios_reales_habilitados(): bool
+{
+    multilicores_bootstrap_env();
+    return multilicores_env('ALLOW_REAL_SERVICES', '0') === '1';
+}
+
+function despacha_registrar_bloqueo(string $servicio): void
+{
+    error_log("[despacha] {$servicio} bloqueado: ALLOW_REAL_SERVICES no está habilitado en este entorno.");
+}
+
+/**
+ * @return array{token:string,phone_id:string,url:string}|null null si el envío está bloqueado o sin configurar
+ */
+function despacha_whatsapp_config(): ?array
+{
+    if (!despacha_servicios_reales_habilitados()) {
+        return null;
+    }
+    $token = multilicores_env('WHATSAPP_TOKEN');
+    $phoneId = multilicores_env('WHATSAPP_PHONE_ID');
+    if ($token === null || $phoneId === null) {
+        return null;
+    }
+    return [
+        'token' => $token,
+        'phone_id' => $phoneId,
+        'url' => 'https://graph.facebook.com/v22.0/' . rawurlencode($phoneId) . '/messages',
+    ];
+}
+
+function despacha_internal_token(): ?string
+{
+    multilicores_bootstrap_env();
+    return multilicores_env('INTERNAL_API_TOKEN');
+}
+
+function despacha_base_url(): string
+{
+    multilicores_bootstrap_env();
+    return rtrim((string)multilicores_env('APP_BASE_URL', 'http://localhost'), '/');
+}
+
+function despacha_host_es_local(string $host): bool
+{
+    return in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'], true);
 }
 
 /**
@@ -105,21 +140,18 @@ function multilicores_db_config(): array
     multilicores_bootstrap_env();
     $env = multilicores_app_env();
 
-    if ($env === 'dev') {
-        $host = multilicores_env('DB_HOST', 'localhost');
-        $port = (int)multilicores_env('DB_PORT', '3306');
-        $username = multilicores_env('DB_USER', 'u633742531_MultiTest25');
-        $password = multilicores_env('DB_PASS', 'Multilicores2244*');
-        $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
-        $dbname = multilicores_env('DB_NAME', 'u633742531_Multi_test');
-    } else {
-        // Fallbacks = producción actual (Hostinger sin .env no cambia de base).
-        $host = multilicores_env('DB_HOST', 'localhost');
-        $port = (int)multilicores_env('DB_PORT', '3306');
-        $username = multilicores_env('DB_USER', 'u633742531_Multilicores25');
-        $password = multilicores_env('DB_PASS', 'Multilicores2025');
-        $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
-        $dbname = multilicores_env('DB_NAME', 'u633742531_Multilicores');
+    $host = multilicores_env('DB_HOST', 'localhost');
+    $port = (int)multilicores_env('DB_PORT', '3306');
+    $username = multilicores_env('DB_USER');
+    $password = multilicores_env('DB_PASS', '');
+    $charset = multilicores_env('DB_CHARSET', 'utf8mb4');
+    $dbname = multilicores_env('DB_NAME');
+
+    if ($username === null || $dbname === null) {
+        throw new RuntimeException('Configuración de base incompleta: defina DB_NAME y DB_USER en sistema/config/.env.' . $env);
+    }
+    if (!despacha_host_es_local($host) && !despacha_servicios_reales_habilitados()) {
+        throw new RuntimeException('Conexión a base remota bloqueada: solo se permite localhost salvo ALLOW_REAL_SERVICES=1.');
     }
 
     return [
