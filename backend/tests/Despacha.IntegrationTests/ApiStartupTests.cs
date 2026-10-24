@@ -4,6 +4,7 @@ using Despacha.Api.Modules.Platform;
 using Despacha.Api.Shared.Modules;
 using Despacha.Api.Shared.Persistence;
 using Despacha.Api.Shared.Runtime;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Despacha.IntegrationTests;
@@ -52,6 +53,23 @@ public class ApiStartupTests
             "Notifications", "Orders", "Platform", "Receivables", "Tracking",
         ];
         Assert.Equal(expectedModules, services.GetServices<IModule>().Select(m => m.Name).Order().ToArray());
+    }
+
+    [Fact]
+    public async Task La_API_no_aplica_migraciones_al_arrancar()
+    {
+        await using var factory = new DespachaApiFactory();
+        using var client = factory.CreateClient();
+        await client.GetAsync("/health/ready");
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<Despacha.Api.Modules.Platform.Internal.ControlDbContext>();
+        var connection = db.Database.GetDbConnection();
+        await db.Database.OpenConnectionAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'";
+
+        Assert.Equal(0L, (long)(await command.ExecuteScalarAsync())!);
     }
 
     [Fact]

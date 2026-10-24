@@ -1,0 +1,152 @@
+-- despacha.migration_version: 5D.20261024.03
+-- NO EJECUTAR.
+-- Importación de los usuarios de TEST hacia la identidad nueva.
+-- Corre después de 01_renombre_users_roles_NO_EJECUTAR.sql, de la columna
+-- users.LegacyUserId (migración EF de control, sin aplicar a TEST en este paso)
+-- y de las tablas vacías de InitialControl.
+-- No aplica InitialCatalog, InitialCustomers ni 0001_InitialTenant.sql.
+-- Generado el 2026-10-24 a partir del volcado del 2026-10-22.
+-- Tal como está, este archivo solo devuelve una fila.
+--
+-- No copia password, api_token ni ops_api_token.
+-- PasswordHash queda NULL. ASP.NET Identity no verifica bcrypt $2y$.
+-- El bcrypt sigue en usuarios_legacy.password para un verificador futuro.
+-- Las claves que no son bcrypt no se copian a ninguna columna nueva.
+-- RequiresPasswordChange queda 1 en las seis cuentas.
+-- El id de Identity es nuevo. usuarios_legacy.id se guarda en LegacyUserId.
+-- Jornadas, visitas y entregas siguen usando el id legado, no el de Identity.
+-- La única membresía de este volcado es la cuenta cuyo id_rol legado es 11.
+-- Los id_rol NULL y el 12 no reciben membresía. El id legado 9 se conserva
+-- en LegacyUserId porque las jornadas lo referencian.
+-- No hay ningún usuario con id_rol 14 en el volcado.
+--
+-- Módulos activos de esta ola: Catalog y Customers. El código suma Platform
+-- siempre, así el administrador puede asignar después el resto de cuentas.
+-- La plantilla Administrador no guarda lista de permisos: recibe los de los
+-- módulos activos. La plantilla Vendedor guarda los permisos del código
+-- aunque en este volcado nadie la reciba.
+--
+-- El CREATE TABLE de la identidad sale de la migración InitialControl y hay
+-- que generarlo con `dotnet ef migrations script`, revisarlo y no aplicarlo
+-- a TEST hasta el renombre y el respaldo. Ese script generado no forma parte
+-- de este archivo. AlterDatabase, si apareciera, no se ejecuta a ciegas.
+--
+-- MariaDB confirma el DDL de esas tablas al ejecutarlo. ROLLBACK no lo deshace.
+-- Los INSERT de este archivo sí pueden ir en una transacción.
+
+SELECT '5D.20261024.03' AS version_migracion,
+       'NO_EJECUTAR' AS estado,
+       'Descomentar solo después del renombre, de las tablas de identidad y del respaldo' AS accion;
+
+-- START TRANSACTION;
+--
+-- INSERT INTO tenants (Id, Code, Name, Status)
+-- SELECT e.id_empresa, e.slug, e.nombre, 'Active'
+-- FROM empresas e
+-- WHERE e.id_empresa = 1
+--   AND NOT EXISTS (SELECT 1 FROM tenants t WHERE t.Id = e.id_empresa);
+--
+-- INSERT INTO tenant_modules (TenantId, Module, Enabled)
+-- SELECT 1, modulo, 1
+-- FROM (
+--   SELECT 'Catalog' AS modulo
+--   UNION ALL SELECT 'Customers'
+-- ) m
+-- WHERE NOT EXISTS (
+--   SELECT 1 FROM tenant_modules x WHERE x.TenantId = 1 AND x.Module = m.modulo
+-- );
+--
+-- INSERT INTO roles (Id, TenantId, Name, IsTemplate)
+-- SELECT 1, 1, 'Administrador', 1
+-- WHERE NOT EXISTS (SELECT 1 FROM roles WHERE TenantId = 1 AND Name = 'Administrador');
+--
+-- INSERT INTO roles (Id, TenantId, Name, IsTemplate)
+-- SELECT 2, 1, 'Vendedor', 1
+-- WHERE NOT EXISTS (SELECT 1 FROM roles WHERE TenantId = 1 AND Name = 'Vendedor');
+--
+-- INSERT INTO roles (Id, TenantId, Name, IsTemplate)
+-- SELECT 3, 1, 'Domiciliario', 1
+-- WHERE NOT EXISTS (SELECT 1 FROM roles WHERE TenantId = 1 AND Name = 'Domiciliario');
+--
+-- INSERT INTO role_permissions (RoleId, Permission)
+-- SELECT r.Id, p.permiso
+-- FROM roles r
+-- JOIN (
+--   SELECT 'fieldSales.workday.manage' AS permiso
+--   UNION ALL SELECT 'fieldSales.visit.create'
+--   UNION ALL SELECT 'fieldSales.order.create'
+--   UNION ALL SELECT 'customers.read.assigned'
+--   UNION ALL SELECT 'catalog.read'
+--   UNION ALL SELECT 'tracking.report'
+--   UNION ALL SELECT 'receivables.read.assigned'
+-- ) p
+-- WHERE r.TenantId = 1 AND r.Name = 'Vendedor'
+--   AND NOT EXISTS (
+--     SELECT 1 FROM role_permissions x WHERE x.RoleId = r.Id AND x.Permission = p.permiso
+--   );
+--
+-- INSERT INTO role_permissions (RoleId, Permission)
+-- SELECT r.Id, p.permiso
+-- FROM roles r
+-- JOIN (
+--   SELECT 'deliveries.read.own' AS permiso
+--   UNION ALL SELECT 'deliveries.claim'
+--   UNION ALL SELECT 'deliveries.updateStatus'
+--   UNION ALL SELECT 'deliveries.evidence'
+--   UNION ALL SELECT 'tracking.report'
+-- ) p
+-- WHERE r.TenantId = 1 AND r.Name = 'Domiciliario'
+--   AND NOT EXISTS (
+--     SELECT 1 FROM role_permissions x WHERE x.RoleId = r.Id AND x.Permission = p.permiso
+--   );
+--
+-- INSERT INTO users (
+--   DisplayName, IsActive, RequiresPasswordChange, CreatedAtUtc,
+--   UserName, NormalizedUserName, Email, NormalizedEmail, EmailConfirmed,
+--   PasswordHash, SecurityStamp, ConcurrencyStamp,
+--   PhoneNumber, PhoneNumberConfirmed, TwoFactorEnabled, LockoutEnabled, AccessFailedCount,
+--   LegacyUserId
+-- )
+-- SELECT
+--   CASE WHEN TRIM(u.nombre) = '' THEN u.usuario ELSE LEFT(u.nombre, 150) END,
+--   1,
+--   1,
+--   UTC_TIMESTAMP(6),
+--   u.usuario,
+--   UPPER(u.usuario),
+--   NULLIF(TRIM(u.email), ''),
+--   NULLIF(UPPER(TRIM(u.email)), ''),
+--   0,
+--   NULL,
+--   REPLACE(UUID(), '-', ''),
+--   REPLACE(UUID(), '-', ''),
+--   NULL,
+--   0,
+--   0,
+--   1,
+--   0,
+--   u.id
+-- FROM usuarios_legacy u
+-- WHERE NOT EXISTS (SELECT 1 FROM users x WHERE x.LegacyUserId = u.id);
+--
+-- INSERT INTO memberships (UserId, TenantId, RoleId, Status, CreatedAtUtc)
+-- SELECT u.Id, 1, r.Id, 'Active', UTC_TIMESTAMP(6)
+-- FROM users u
+-- JOIN usuarios_legacy l ON l.id = u.LegacyUserId
+-- JOIN roles r ON r.TenantId = 1 AND r.Name = 'Administrador' AND r.IsTemplate = 1
+-- WHERE l.id_rol = 11
+--   AND NOT EXISTS (
+--     SELECT 1 FROM memberships m WHERE m.UserId = u.Id AND m.TenantId = 1
+--   );
+--
+-- -- Comprobar antes de COMMIT:
+-- -- seis users, cada uno con LegacyUserId distinto
+-- -- una membership, unida al LegacyUserId cuyo id_rol legado es 11
+-- -- PasswordHash NULL en las seis
+-- -- jornadas.id_paseador sigue coincidiendo con usuarios_legacy.id
+-- COMMIT;
+--
+-- tenant_databases no se inserta aquí. El host del volcado (127.0.0.1) es el
+-- servidor visto por phpMyAdmin, no el host que debe guardar la API.
+-- Esa fila se completa cuando se apruebe el destino real, sin escribir la clave
+-- en el repositorio: solo Server, Port, DatabaseName y SecretName.

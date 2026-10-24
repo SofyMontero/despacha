@@ -1,3 +1,4 @@
+using Despacha.Api.Shared.Errors;
 using Despacha.Api.Shared.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,6 +14,14 @@ internal sealed class TenantDbContextFactory<TContext>(
     {
         var tenantId = tenant.TenantId ?? throw new TenantNotResolvedException();
         var connectionString = await connections.GetConnectionStringAsync(tenantId, cancellationToken);
+        try
+        {
+            await ModernizedSchemaGuard.EnsureReadyAsync(connectionString, cancellationToken);
+        }
+        catch (DatabaseConnectionBlockedException ex)
+        {
+            throw new TenantSchemaNotReadyException(ex.Message);
+        }
 
         var builder = new DbContextOptionsBuilder<TContext>();
         builder.UseDespachaMySql(connectionString);
@@ -20,3 +29,6 @@ internal sealed class TenantDbContextFactory<TContext>(
         return ActivatorUtilities.CreateInstance<TContext>(services, builder.Options);
     }
 }
+
+internal sealed class TenantSchemaNotReadyException(string message)
+    : DespachaException(StatusCodes.Status503ServiceUnavailable, message);

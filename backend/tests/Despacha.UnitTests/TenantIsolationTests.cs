@@ -42,13 +42,20 @@ public sealed class TenantIsolationTests : IDisposable
     public async Task El_factory_conecta_el_DbContext_a_la_empresa_activa()
     {
         var provider = CreateProvider();
+        ModernizedSchemaGuard.TestProbe = (_, _) => Task.CompletedTask;
+        try
+        {
+            await using var contextA = await CreateFactory(provider, _tenantA).CreateAsync();
+            await using var contextB = await CreateFactory(provider, _tenantB).CreateAsync();
 
-        await using var contextA = await CreateFactory(provider, _tenantA).CreateAsync();
-        await using var contextB = await CreateFactory(provider, _tenantB).CreateAsync();
-
-        Assert.Contains("despacha_empresa_a_local", contextA.Database.GetConnectionString());
-        Assert.DoesNotContain("despacha_empresa_b_local", contextA.Database.GetConnectionString());
-        Assert.Contains("despacha_empresa_b_local", contextB.Database.GetConnectionString());
+            Assert.Contains("despacha_empresa_a_local", contextA.Database.GetConnectionString());
+            Assert.DoesNotContain("despacha_empresa_b_local", contextA.Database.GetConnectionString());
+            Assert.Contains("despacha_empresa_b_local", contextB.Database.GetConnectionString());
+        }
+        finally
+        {
+            ModernizedSchemaGuard.TestProbe = null;
+        }
     }
 
     [Fact]

@@ -6,4 +6,8 @@
     <UserSecretsId>despacha-migrator-local</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Despacha.Api\Despacha.Api.csproj" />
+  </ItemGroup>
+
 </Project>

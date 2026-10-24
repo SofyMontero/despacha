@@ -43,6 +43,31 @@ public class ModuleBoundaryTests
     }
 
     [Fact]
+    public void Las_implementaciones_internas_no_son_publicas()
+    {
+        var result = Types.InAssembly(typeof(Program).Assembly)
+            .That().ResideInNamespaceMatching(@"^Despacha\.Api\.Modules\.\w+\.Internal(\.|$)")
+            .And().DoNotResideInNamespaceMatching(@"\.Migrations$")
+            .ShouldNot().BePublic()
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Theory]
+    [InlineData("Catalog", "Customers")]
+    [InlineData("Customers", "Catalog")]
+    public void Catalogo_y_clientes_no_se_usan_entre_si(string module, string other)
+    {
+        var result = Types.InAssembly(typeof(Program).Assembly)
+            .That().ResideInNamespace($"{Root}.Modules.{module}")
+            .ShouldNot().HaveDependencyOn($"{Root}.Modules.{other}")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful, Describe(result));
+    }
+
+    [Fact]
     public void Existen_los_once_modulos_de_la_Fase_2()
     {
         var found = typeof(Program).Assembly.GetTypes()

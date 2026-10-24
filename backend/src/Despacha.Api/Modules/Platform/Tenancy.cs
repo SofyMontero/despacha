@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Security.Claims;
 using Despacha.Api.Modules.Platform.Internal;
 using Despacha.Api.Shared.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +10,15 @@ public static class DespachaClaims
 {
     public const string Subject = "sub";
     public const string TenantId = "tid";
+}
+
+public static class ClaimsPrincipalExtensions
+{
+    /// <summary>Id del usuario de la base de control; los módulos lo guardan como auditoría, sin clave foránea.</summary>
+    public static long? GetUserId(this ClaimsPrincipal user) =>
+        long.TryParse(user.FindFirst(DespachaClaims.Subject)?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var id) && id > 0
+            ? id
+            : null;
 }
 
 /// <summary>Empresa activa de la solicitud. Solo sale del token validado (D-05), nunca de un encabezado libre.</summary>

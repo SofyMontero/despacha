@@ -2,7 +2,7 @@ using System.Security.Claims;
 
 namespace Despacha.Api.Modules.Platform.Internal;
 
-/// <summary>Endpoint mínimo protegido para verificar autenticación y empresa activa. El login llega en 4B.</summary>
+/// <summary>Endpoint mínimo protegido para verificar autenticación y empresa activa.</summary>
 internal static class SessionEndpoints
 {
     public static void Map(IEndpointRouteBuilder endpoints)

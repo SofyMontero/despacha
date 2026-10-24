@@ -1,4 +1,4 @@
-# Despacha — backend .NET 10 (Fase 4A)
+# Despacha — backend .NET 10 (Fases 4A y 4B)
 
 ## Ejecutar en local
 
@@ -17,6 +17,27 @@ dotnet run --project src/Despacha.Api
 - Sin `SigningKey`, en Local se usa una clave efímera: los tokens dejan de valer al reiniciar.
 
 Pruebas: `dotnet test` (usan SQLite en memoria y dobles; no se conectan a servicios reales).
+
+## Base de control: migraciones y alta de empresas (`Despacha.Migrator`)
+
+La API nunca migra al arrancar (D-07). El Migrator usa `ConnectionStrings:Control` desde sus propios user-secrets y las mismas guardas de ambiente que la API.
+
+```powershell
+dotnet run --project src/Despacha.Migrator -- script --output ../database/control/0001_InitialControl.sql   # sin conexión
+dotnet run --project src/Despacha.Migrator -- script --from <última migración aplicada> --output <archivo>.sql
+dotnet run --project src/Despacha.Migrator -- apply --confirm                                               # solo pendientes
+$env:DESPACHA_ADMIN_PASSWORD = "<clave>"   # o se pide oculta por consola
+dotnet run --project src/Despacha.Migrator -- provision-tenant --code alfa --name "Empresa Alfa" `
+  --db-server localhost --db-name despacha_alfa_local --db-secret tenant-alfa --admin-login admin.alfa
+```
+
+Nueva migración tras cambiar el modelo: `dotnet ef migrations add <Nombre> --project src/Despacha.Api --context ControlDbContext --output-dir Modules/Platform/Internal/Migrations` (herramienta local en `dotnet-tools.json`; `dotnet tool restore`).
+
+## Autenticación (4B)
+
+- `POST /api/auth/login` `{login, password, client?}`: con una sola empresa el token ya trae `tid`; con varias, se elige con `POST /api/auth/tenant`.
+- Expo: el `refreshToken` llega en el cuerpo y se guarda en `expo-secure-store`. Admin web (`client: "web"`): llega en la cookie `__Secure-despacha-rt` (HttpOnly, Secure, SameSite=Strict, path `/api/auth`) y `refresh`/`logout` exigen un `Origin` de `Cors:AllowedOrigins`.
+- Configuración: `Auth:AccessTokenMinutes` (15), `Auth:RefreshTokenDays` (14), `Security:RateLimit:AuthPermitsPerMinute` (10 por IP).
 
 ## Esquema heredado TEST (solo lectura, pendiente de autorización)
 
@@ -38,9 +59,19 @@ Se recomienda un usuario MySQL con permiso `SELECT` únicamente.
 
 Las combinaciones inválidas, los orígenes CORS con comodín y la falta de `SigningKey` fuera de Local impiden el arranque.
 
-## Incompatibilidad técnica: proveedor MySQL de EF Core 10
+## Motor de referencia: MariaDB 11.8.9
 
-- `Pomelo.EntityFrameworkCore.MySql` no tiene versión para EF Core 10; la última es la 9.0.0.
-- Se usa `MySql.EntityFrameworkCore` 10.0.12 (Oracle), que depende de EF Core 10.0.12. El cambio de proveedor queda aislado en `Shared/Persistence/DespachaMySql.cs`.
-- Riesgo: Oracle no da soporte oficial a MariaDB. Si el servidor final es MariaDB, hay que probarlo o pasar a Pomelo cuando publique la versión 10.
-- La prueba mínima (`MySqlProviderCompatibilityTests`) genera el DDL sin conectarse. Falta probarlo contra un servidor real.
+- Hostinger usa `11.8.9-MariaDB-log`. Es el motor de referencia del proyecto.
+- Proveedor actual: `MySql.EntityFrameworkCore` 10.0.12 (Oracle). Oracle no da soporte oficial a MariaDB. `Pomelo.EntityFrameworkCore.MySql` 9.0.0 exige EF Core 9 y no tiene versión para EF Core 10. Evaluación completa: `docs/FASE_4C_CIERRE.md`.
+- El proveedor se elige solo en `Shared/Persistence/DespachaMySql.cs` (`UseDespachaMySql`).
+
+### Pruebas contra MariaDB 11.8.9 (opcionales y desechables)
+
+`tests/Despacha.IntegrationTests/MariaDb` contiene 8 pruebas que se omiten salvo que se activen. Crean una base `despacha_it_*` por prueba y la borran al terminar. Solo aceptan un servidor en loopback; **nunca** se deben apuntar al esquema TEST de Hostinger.
+
+```powershell
+$env:DESPACHA_MARIADB_TESTS = "docker"          # Testcontainers con la imagen mariadb:11.8.9 (requiere Docker)
+# o una instancia local aislada con permiso CREATE/DROP DATABASE:
+$env:DESPACHA_MARIADB_TEST_CONNECTION = "Server=127.0.0.1;Port=3307;User ID=root;Password=<local>"
+dotnet test tests/Despacha.IntegrationTests --filter "FullyQualifiedName~MariaDb"
+```

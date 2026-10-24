@@ -1,11 +1,10 @@
+using Despacha.Api.Integrations.Storage;
 using Despacha.Api.Integrations.WhatsApp;
 using Despacha.Api.Modules.Platform;
 using Despacha.Api.Shared.Errors;
 using Despacha.Api.Shared.Modules;
-using Despacha.Api.Shared.Persistence;
 using Despacha.Api.Shared.Runtime;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Formatting.Compact;
 
@@ -19,6 +18,12 @@ public static class DespachaHostingExtensions
         "/health/live",
         "/health/ready",
         "/openapi/{documentName}.json",
+        "/api/auth/login",
+        "/api/auth/refresh",
+        "/api/auth/logout",
+        "/api/auth/password/forgot",
+        "/api/auth/password/reset",
+        "/media/{**key}",
     };
 
     public static WebApplicationBuilder AddDespacha(this WebApplicationBuilder builder)
@@ -44,20 +49,11 @@ public static class DespachaHostingExtensions
             }
         });
 
-        services.AddOptions<DespachaOptions>().BindConfiguration(DespachaOptions.SectionName).ValidateOnStart();
-        services.AddSingleton<IValidateOptions<DespachaOptions>, DespachaOptionsValidator>();
-        services.AddSingleton(sp => new DespachaRuntime(DespachaEnvironmentResolver.Resolve(
-            sp.GetRequiredService<IOptions<DespachaOptions>>().Value.Environment,
-            sp.GetRequiredService<IHostEnvironment>())));
-
-        services.AddOptions<DatabaseSafetyOptions>().BindConfiguration(DatabaseSafetyOptions.SectionName);
-        services.AddSingleton<DatabaseSafetyGuard>();
-
+        services.AddDespachaRuntime();
         services.AddProblemDetails();
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddDespachaSecurity();
         services.AddOpenApi();
-        services.AddSingleton(TimeProvider.System);
 
         services.AddDespachaIntegrations();
         services.AddDespachaModules(builder.Configuration);
@@ -78,6 +74,7 @@ public static class DespachaHostingExtensions
         }
 
         app.UseCors(SecurityExtensions.CorsPolicyName);
+        app.UseRateLimiter();
         app.UseAuthentication();
         app.UseTenantResolution();
         app.UseAuthorization();
@@ -86,6 +83,7 @@ public static class DespachaHostingExtensions
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") })
             .AllowAnonymous();
 
+        app.MapDespachaMedia();
         app.MapDespachaModules();
         return app;
     }

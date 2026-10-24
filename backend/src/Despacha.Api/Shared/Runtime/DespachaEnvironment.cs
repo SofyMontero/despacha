@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Despacha.Api.Shared.Runtime;
@@ -45,6 +46,24 @@ public static class DespachaEnvironmentResolver
         }
 
         return environment;
+    }
+}
+
+internal static class DespachaRuntimeServices
+{
+    /// <summary>Ambiente y guardas de conexión. Compartido por la API y el Migrator.</summary>
+    public static IServiceCollection AddDespachaRuntime(this IServiceCollection services)
+    {
+        services.AddOptions<DespachaOptions>().BindConfiguration(DespachaOptions.SectionName).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<DespachaOptions>, DespachaOptionsValidator>();
+        services.AddSingleton(sp => new DespachaRuntime(DespachaEnvironmentResolver.Resolve(
+            sp.GetRequiredService<IOptions<DespachaOptions>>().Value.Environment,
+            sp.GetRequiredService<IHostEnvironment>())));
+
+        services.AddOptions<Persistence.DatabaseSafetyOptions>().BindConfiguration(Persistence.DatabaseSafetyOptions.SectionName);
+        services.AddSingleton<Persistence.DatabaseSafetyGuard>();
+        services.TryAddSingleton(TimeProvider.System);
+        return services;
     }
 }
 

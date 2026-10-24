@@ -1,3 +1,4 @@
+using Despacha.Api.Integrations.Storage;
 using Despacha.Api.Shared.Logging;
 
 namespace Despacha.Api.Integrations.WhatsApp;
@@ -36,6 +37,7 @@ public static class IntegrationsServiceCollectionExtensions
     public static IServiceCollection AddDespachaIntegrations(this IServiceCollection services)
     {
         services.AddSingleton<IWhatsAppSender, DisabledWhatsAppSender>();
+        services.AddDespachaStorage();
         return services;
     }
 }

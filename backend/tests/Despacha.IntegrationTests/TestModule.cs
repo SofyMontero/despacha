@@ -29,6 +29,8 @@ internal sealed class TestModule : IModule
             await using var context = await factory.CreateAsync();
             return Results.Ok();
         }).AllowAnonymous();
+
+        endpoints.MapGet("/test/catalog", () => Results.Ok()).RequirePermission("catalog.read");
     }
 }
 

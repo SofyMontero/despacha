@@ -1,7 +1,7 @@
-using System.Security.Cryptography;
-using System.Text;
+using System.Threading.RateLimiting;
 using Despacha.Api.Modules.Platform;
 using Despacha.Api.Shared.Runtime;
+using Despacha.Api.Shared.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors.Infrastructure;
@@ -10,29 +10,9 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Despacha.Api.Hosting;
 
-public sealed class JwtSettings
-{
-    public const string SectionName = "Auth:Jwt";
-
-    public string Issuer { get; set; } = string.Empty;
-
-    public string Audience { get; set; } = string.Empty;
-
-    /// <summary>Solo desde user-secrets o variables de entorno. Mínimo 32 caracteres.</summary>
-    public string? SigningKey { get; set; }
-}
-
-public sealed class CorsSettings
-{
-    public const string SectionName = "Cors";
-
-    public string[] AllowedOrigins { get; set; } = [];
-}
-
 internal static class SecurityExtensions
 {
     public const string CorsPolicyName = "despacha";
-    private const int MinimumSigningKeyLength = 32;
 
     public static IServiceCollection AddDespachaSecurity(this IServiceCollection services)
     {
@@ -53,6 +33,7 @@ internal static class SecurityExtensions
                     ValidAudience = settings.Value.Audience,
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = signingKey.Key,
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
                     ValidateLifetime = true,
                     RequireExpirationTime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
@@ -73,29 +54,27 @@ internal static class SecurityExtensions
                 {
                     policy.WithOrigins(settings.Value.AllowedOrigins)
                         .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE")
-                        .WithHeaders("Authorization", "Content-Type");
+                        .WithHeaders("Authorization", "Content-Type")
+                        .AllowCredentials();
                 }
             }));
 
-        return services;
-    }
-
-    internal sealed class JwtSigningKey(IOptions<JwtSettings> settings, DespachaRuntime runtime)
-    {
-        public SymmetricSecurityKey Key { get; } = Create(settings.Value, runtime);
-
-        private static SymmetricSecurityKey Create(JwtSettings settings, DespachaRuntime runtime)
+        services.AddOptions<RateLimitSettings>().BindConfiguration(RateLimitSettings.SectionName)
+            .Validate(settings => settings.AuthPermitsPerMinute > 0, "Security:RateLimit:AuthPermitsPerMinute debe ser mayor que cero.")
+            .ValidateOnStart();
+        services.AddRateLimiter(options =>
         {
-            if (!string.IsNullOrEmpty(settings.SigningKey))
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy(RateLimitSettings.AuthenticationPolicy, context =>
             {
-                return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.SigningKey));
-            }
+                var permits = context.RequestServices.GetRequiredService<IOptions<RateLimitSettings>>().Value.AuthPermitsPerMinute;
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = permits, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+            });
+        });
 
-            // Solo en Local: clave efímera; los tokens dejan de valer al reiniciar.
-            return runtime.IsLocal
-                ? new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(MinimumSigningKeyLength))
-                : throw new InvalidOperationException("Falta Auth:Jwt:SigningKey.");
-        }
+        return services;
     }
 
     private sealed class JwtSettingsValidator(DespachaRuntime runtime) : IValidateOptions<JwtSettings>
@@ -114,8 +93,8 @@ internal static class SecurityExtensions
                     : ValidateOptionsResult.Fail("Falta Auth:Jwt:SigningKey en la configuración externa.");
             }
 
-            return options.SigningKey.Length < MinimumSigningKeyLength
-                ? ValidateOptionsResult.Fail($"Auth:Jwt:SigningKey debe tener al menos {MinimumSigningKeyLength} caracteres.")
+            return options.SigningKey.Length < JwtSettings.MinimumSigningKeyLength
+                ? ValidateOptionsResult.Fail($"Auth:Jwt:SigningKey debe tener al menos {JwtSettings.MinimumSigningKeyLength} caracteres.")
                 : ValidateOptionsResult.Success;
         }
     }
