@@ -34,12 +34,29 @@ internal sealed class TenantConnectionProvider(
 
     private async Task<string> BuildAsync(long tenantId, CancellationToken cancellationToken)
     {
+        if (!await control.Tenants.AsNoTracking().AnyAsync(t => t.Id == tenantId && t.Status == TenantStatus.Active, cancellationToken))
+        {
+            throw new TenantUnavailableException();
+        }
+
         var target = await control.TenantDatabases
             .AsNoTracking()
-            .Where(d => d.TenantId == tenantId && d.Tenant.Status == TenantStatus.Active)
+            .Where(d => d.TenantId == tenantId)
             .Select(d => new { d.Server, d.Port, d.DatabaseName, d.SecretName })
-            .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new TenantUnavailableException();
+            .SingleOrDefaultAsync(cancellationToken);
+
+        // Sin fila propia, la empresa vive en la misma base que el control (una base por ambiente).
+        if (target is null)
+        {
+            var shared = configuration.GetConnectionString("Control");
+            if (string.IsNullOrWhiteSpace(shared))
+            {
+                throw new InvalidOperationException("No está configurada ConnectionStrings:Control.");
+            }
+
+            guard.EnsureAllowed(shared);
+            return shared;
+        }
 
         guard.EnsureAllowed(target.Server, target.DatabaseName);
 

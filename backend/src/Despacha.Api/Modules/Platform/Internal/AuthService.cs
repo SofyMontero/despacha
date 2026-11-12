@@ -47,7 +47,9 @@ internal sealed class AuthService(
             throw new InvalidCredentialsException();
         }
 
-        if (!await users.CheckPasswordAsync(user, password ?? string.Empty))
+        var valid = await users.CheckPasswordAsync(user, password ?? string.Empty)
+            || await TryUpgradeLegacyPasswordAsync(user, password ?? string.Empty, cancellationToken);
+        if (!valid)
         {
             await users.AccessFailedAsync(user);
             await audit.RecordAsync("login.failed", user.Id, null, cancellationToken: cancellationToken);
@@ -190,6 +192,36 @@ internal sealed class AuthService(
             .OrderBy(m => m.Name)
             .ToListAsync(cancellationToken);
         return rows.Select(m => new MembershipSummary(m.Id, m.Code, m.Name, m.Role)).ToList();
+    }
+
+    /// <summary>
+    /// Usuario histórico sin hash de Identity: acepta una vez su hash bcrypt de <c>users.password</c>
+    /// y lo reemplaza por el de Identity. Una clave en texto plano nunca se compara.
+    /// </summary>
+    private async Task<bool> TryUpgradeLegacyPasswordAsync(StaffUser user, string password, CancellationToken cancellationToken)
+    {
+        if (user.PasswordHash is not null || !LegacyPasswords.Verify(password, user.LegacyPassword))
+        {
+            return false;
+        }
+
+        user.PasswordHash = hasher.HashPassword(user, password);
+        foreach (var validator in users.PasswordValidators)
+        {
+            if (!(await validator.ValidateAsync(users, user, password)).Succeeded)
+            {
+                user.RequiresPasswordChange = true;
+            }
+        }
+
+        var updated = await users.UpdateAsync(user);
+        if (!updated.Succeeded)
+        {
+            return false;
+        }
+
+        await audit.RecordAsync("login.legacy_password_upgraded", user.Id, null, cancellationToken: cancellationToken);
+        return true;
     }
 
     private async Task AfterPasswordChangedAsync(StaffUser user, string action, CancellationToken cancellationToken)

@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Despacha.Api\Despacha.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\Despacha.Api\appsettings.Test.json" Link="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

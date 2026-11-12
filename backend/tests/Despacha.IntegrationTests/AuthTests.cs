@@ -27,6 +27,85 @@ public class AuthTests
     }
 
     [Fact]
+    public async Task Usuario_historico_con_bcrypt_entra_una_vez_y_queda_con_hash_de_Identity()
+    {
+        const string legacyPassword = "Clave-Historica-2026";
+        await using var factory = new DespachaApiFactory();
+        var tenantId = await factory.ProvisionTenantAsync("alfa", "admin.alfa");
+        var userId = await AddHistoricalAdminAsync(factory, tenantId, "historico", "$2y$" + BCrypt.Net.BCrypt.HashPassword(legacyPassword, 4)[4..]);
+        using var client = factory.CreateClient();
+
+        var wrong = await client.PostAsJsonAsync("/api/auth/login", new { login = "historico", password = "otra-clave-incorrecta" });
+        var session = await DespachaApiFactory.LoginAsync(client, "historico", legacyPassword);
+        var again = await DespachaApiFactory.LoginAsync(client, "historico", legacyPassword);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        Assert.Equal(tenantId, session.TenantId);
+        Assert.Equal(tenantId, again.TenantId);
+        await factory.WithControlDbAsync(async db =>
+        {
+            var user = await db.Users.SingleAsync(u => u.Id == userId);
+            Assert.StartsWith("AQAAAA", user.PasswordHash);
+            Assert.StartsWith("$2y$", user.LegacyPassword);
+            Assert.False(user.RequiresPasswordChange);
+            Assert.Equal(1, await db.AuditEvents.CountAsync(e => e.Action == "login.legacy_password_upgraded" && e.UserId == userId));
+        });
+    }
+
+    [Fact]
+    public async Task Usuario_historico_con_clave_en_texto_plano_no_puede_entrar()
+    {
+        const string plain = "clave-en-texto-plano";
+        await using var factory = new DespachaApiFactory();
+        var tenantId = await factory.ProvisionTenantAsync("alfa", "admin.alfa");
+        var userId = await AddHistoricalAdminAsync(factory, tenantId, "plano", plain);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { login = "plano", password = plain });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await factory.WithControlDbAsync(async db => Assert.Null((await db.Users.SingleAsync(u => u.Id == userId)).PasswordHash));
+    }
+
+    [Fact]
+    public async Task Una_clave_historica_que_no_cumple_la_politica_obliga_a_cambiarla()
+    {
+        const string weak = "corta1";
+        await using var factory = new DespachaApiFactory();
+        var tenantId = await factory.ProvisionTenantAsync("alfa", "admin.alfa");
+        await AddHistoricalAdminAsync(factory, tenantId, "debil", "$2y$" + BCrypt.Net.BCrypt.HashPassword(weak, 4)[4..]);
+        using var client = factory.CreateClient();
+
+        var session = await DespachaApiFactory.LoginAsync(client, "debil", weak);
+
+        Assert.True(session.RequiresPasswordChange);
+    }
+
+    /// <summary>Fila como la que deja el script 01: sin hash de Identity y con la clave histórica en users.password.</summary>
+    private static async Task<long> AddHistoricalAdminAsync(DespachaApiFactory factory, long tenantId, string login, string legacyPassword)
+    {
+        long userId = 0;
+        await factory.WithControlDbAsync(async db =>
+        {
+            var user = new StaffUser
+            {
+                UserName = login,
+                NormalizedUserName = login.ToUpperInvariant(),
+                DisplayName = login,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+                LegacyPassword = legacyPassword,
+            };
+            db.Users.Add(user);
+            await db.SaveChangesAsync();
+            var role = await db.Roles.SingleAsync(r => r.TenantId == tenantId && r.Name == RoleTemplates.Administrator);
+            db.Memberships.Add(new Membership { UserId = user.Id, TenantId = tenantId, RoleId = role.Id });
+            await db.SaveChangesAsync();
+            userId = user.Id;
+        });
+        return userId;
+    }
+
+    [Fact]
     public async Task Contrasena_y_refresh_token_se_guardan_solo_como_hash()
     {
         await using var factory = new DespachaApiFactory();

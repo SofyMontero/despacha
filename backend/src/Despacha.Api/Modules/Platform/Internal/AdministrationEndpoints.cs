@@ -28,6 +28,16 @@ internal static class AdministrationEndpoints
             TenantAccessService access, PlatformAudit audit, ClaimsPrincipal principal, TimeProvider clock, CancellationToken ct) =>
         {
             var tenantId = tenant.TenantId!.Value;
+            if (string.IsNullOrWhiteSpace(request.Login) || request.Login.Trim().Length > StaffUser.LoginMaxLength)
+            {
+                return Invalid("Login", $"El usuario es obligatorio y admite hasta {StaffUser.LoginMaxLength} caracteres.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.DisplayName) || request.DisplayName.Trim().Length > StaffUser.DisplayNameMaxLength)
+            {
+                return Invalid("DisplayName", $"El nombre es obligatorio y admite hasta {StaffUser.DisplayNameMaxLength} caracteres.");
+            }
+
             var role = await db.Roles.SingleOrDefaultAsync(r => r.TenantId == tenantId && r.Name == request.Role, ct);
             if (role is null)
             {

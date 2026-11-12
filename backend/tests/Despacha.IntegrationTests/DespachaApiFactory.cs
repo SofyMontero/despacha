@@ -11,6 +11,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -179,7 +180,20 @@ public sealed class DespachaApiFactory : WebApplicationFactory<Program>
             _schemaCreated = true;
         }
 
-        builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(_settings));
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            // Los user-secrets del desarrollador pueden apuntar a TEST; las pruebas no los leen.
+            var userSecrets = configuration.Sources
+                .OfType<JsonConfigurationSource>()
+                .Where(source => source.Path == "secrets.json")
+                .ToArray();
+            foreach (var source in userSecrets)
+            {
+                configuration.Sources.Remove(source);
+            }
+
+            configuration.AddInMemoryCollection(_settings);
+        });
         builder.ConfigureTestServices(services =>
         {
             if (ControlConnectionString is null)

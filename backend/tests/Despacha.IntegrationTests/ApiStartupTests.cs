@@ -101,6 +101,29 @@ public class ApiStartupTests
         Assert.Contains(expected, Flatten(ex));
     }
 
+    [Theory]
+    [InlineData("http://localhost:5174", true)]
+    [InlineData("http://admin.example.com", false)]
+    [InlineData("https://admin.example.com", true)]
+    public async Task En_Test_solo_localhost_puede_usar_http_como_origen(string origin, bool starts)
+    {
+        await using var factory = new DespachaApiFactory()
+            .WithSetting("Despacha:Environment", "Test")
+            .WithSetting("Database:AllowedHosts:0", "localhost")
+            .WithSetting("Cors:AllowedOrigins:0", origin);
+
+        if (starts)
+        {
+            using var client = factory.CreateClient();
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live")).StatusCode);
+        }
+        else
+        {
+            var ex = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+            Assert.Contains("CORS", Flatten(ex));
+        }
+    }
+
     [Fact]
     public async Task CORS_con_comodin_impide_el_arranque()
     {

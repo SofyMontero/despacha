@@ -107,13 +107,13 @@ internal static class SecurityExtensions
             {
                 var valid = origin != "*"
                     && Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-                    && (uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && runtime.IsLocal))
+                    && (uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && (runtime.IsLocal || (runtime.Environment == DespachaEnvironment.Test && uri.IsLoopback))))
                     && uri.AbsolutePath == "/"
                     && string.IsNullOrEmpty(uri.Query);
 
                 if (!valid)
                 {
-                    return ValidateOptionsResult.Fail($"Origen CORS no permitido: '{origin}'. Use orígenes explícitos (https fuera de Local).");
+                    return ValidateOptionsResult.Fail($"Origen CORS no permitido: '{origin}'. Use orígenes explícitos (https fuera de Local; en Test, http solo para localhost).");
                 }
             }
 

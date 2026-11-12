@@ -26,8 +26,18 @@ public static class DespachaHostingExtensions
         "/media/{**key}",
     };
 
+    /// <summary>Host ASP.NET del perfil "test": usa appsettings.Test.json y su propio archivo de user-secrets.</summary>
+    public const string TestHostEnvironment = "Test";
+
+    public const string TestUserSecretsId = "despacha-api-test";
+
     public static WebApplicationBuilder AddDespacha(this WebApplicationBuilder builder)
     {
+        if (builder.Environment.IsEnvironment(TestHostEnvironment))
+        {
+            builder.Configuration.AddUserSecrets(TestUserSecretsId);
+        }
+
         builder.Host.UseDefaultServiceProvider(options =>
         {
             options.ValidateScopes = true;

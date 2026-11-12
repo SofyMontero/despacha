@@ -13,6 +13,18 @@ public static class LegacySchemaGuard
 
     public static async Task EnsureNotLegacyAsync(string connectionString, CancellationToken cancellationToken = default)
     {
+        var found = await FindAsync(connectionString, cancellationToken);
+        if (found.Count > 0)
+        {
+            var database = new MySqlConnectionStringBuilder(connectionString).Database;
+            throw new DatabaseConnectionBlockedException(
+                $"La base '{database}' tiene tablas del sistema heredado ({string.Join(", ", found)}). No se migra.");
+        }
+    }
+
+    /// <summary>Nombres de tablas heredadas presentes. No escribe.</summary>
+    public static async Task<IReadOnlyList<string>> FindAsync(string connectionString, CancellationToken cancellationToken = default)
+    {
         var builder = new MySqlConnectionStringBuilder(connectionString);
         var database = builder.Database;
         if (string.IsNullOrWhiteSpace(database))
@@ -41,10 +53,6 @@ public static class LegacySchemaGuard
             }
         }
 
-        if (found.Count > 0)
-        {
-            throw new DatabaseConnectionBlockedException(
-                $"La base '{database}' tiene tablas del sistema heredado ({string.Join(", ", found)}). No se migra.");
-        }
+        return found;
     }
 }

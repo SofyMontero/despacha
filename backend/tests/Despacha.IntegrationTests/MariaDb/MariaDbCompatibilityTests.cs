@@ -38,35 +38,91 @@ public class MariaDbCompatibilityTests(MariaDbServer server, ITestOutputHelper o
     }
 
     [MariaDbFact]
-    public async Task Las_migraciones_se_aplican_y_reaplicarlas_no_cambia_nada()
+    public async Task El_script_01_se_aplica_dos_veces_sobre_la_estructura_historica_sin_tocar_sus_datos()
     {
-        var connection = await server.CreateDatabaseAsync();
-        await using (var context = MariaDbServer.CreateContext(connection))
-        {
-            await context.Database.MigrateAsync();
-            await context.Database.MigrateAsync();
-            Assert.Empty(await context.Database.GetPendingMigrationsAsync());
-        }
+        var connection = await server.CreateHistoricalControlDatabaseAsync();
+        const string historical = "SELECT GROUP_CONCAT(CONCAT_WS('|', id, usuario, password, email, telefono, direccion, nombre, rol, " +
+            "IFNULL(api_token, '-'), IFNULL(id_empresa, '-'), IFNULL(id_rol, '-')) ORDER BY id) FROM users";
+        var before = await MariaDbServer.ScalarAsync(connection, historical);
 
-        var tables = Convert.ToInt32(await MariaDbServer.ScalarAsync(connection,
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND ENGINE = 'InnoDB'"));
-        Assert.Equal(13, tables);
+        await MariaDbServer.ApplyIdentityScriptAsync(connection);
+        await MariaDbServer.ApplyIdentityScriptAsync(connection);
+
+        Assert.Equal(before, await MariaDbServer.ScalarAsync(connection, historical));
+        await using var context = MariaDbServer.CreateContext(connection);
+        await ControlSchema.EnsureReadyAsync(context, CancellationToken.None);
+        var membership = await context.Memberships.Include(m => m.Role).SingleAsync();
+        Assert.Equal(1, membership.UserId);
+        Assert.Equal(RoleTemplates.Administrator, membership.Role.Name);
+        Assert.Equal(6, await context.Roles.CountAsync(r => r.TenantId == 1));
+        Assert.Equal(3, await context.Roles.CountAsync(r => r.IsTemplate));
+        Assert.Equal(["Catalog", "Customers"], await context.TenantModules.OrderBy(m => m.Module).Select(m => m.Module).ToArrayAsync());
+        Assert.All(await context.Users.ToListAsync(), user =>
+        {
+            Assert.Null(user.PasswordHash);
+            Assert.Equal(user.UserName!.ToUpperInvariant(), user.NormalizedUserName);
+            Assert.NotNull(user.SecurityStamp);
+        });
     }
 
     [MariaDbFact]
-    public async Task El_script_de_revision_del_Migrator_se_ejecuta_en_MariaDB()
+    public async Task El_script_01_se_detiene_en_una_base_no_autorizada_sin_cambiar_nada()
+    {
+        var connection = await server.CreateHistoricalControlDatabaseAsync();
+
+        var error = await Assert.ThrowsAsync<MySqlException>(() => MariaDbServer.ApplyIdentityScriptAsync(connection, authorizeDatabase: false));
+
+        Assert.Contains("DETENER", error.Message);
+        Assert.Equal(0L, Convert.ToInt64(await MariaDbServer.ScalarAsync(connection,
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'usuario_normalizado'")));
+        Assert.Equal(3L, Convert.ToInt64(await MariaDbServer.ScalarAsync(connection,
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()")));
+    }
+
+    [MariaDbFact]
+    public async Task Sin_el_script_01_la_API_responde_503_con_las_columnas_faltantes()
+    {
+        var connection = await server.CreateHistoricalControlDatabaseAsync();
+        await using var factory = new DespachaApiFactory { ControlConnectionString = connection };
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { login = "vendedor", password = MariaDbServer.HistoricalSellerPassword });
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains(ControlDbContext.ControlSchemaVersion, await response.Content.ReadAsStringAsync());
+    }
+
+    [MariaDbFact]
+    public async Task Tras_el_script_01_el_usuario_historico_entra_con_su_clave_bcrypt()
+    {
+        var connection = await server.CreateHistoricalControlDatabaseAsync();
+        await MariaDbServer.ApplyIdentityScriptAsync(connection);
+        await using var factory = new DespachaApiFactory { ControlConnectionString = connection };
+        using var client = factory.CreateClient();
+
+        var plain = await client.PostAsJsonAsync("/api/auth/login", new { login = "admin", password = "texto-plano" });
+        var seller = await DespachaApiFactory.LoginAsync(client, "vendedor", MariaDbServer.HistoricalSellerPassword);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, plain.StatusCode);
+        Assert.Empty(seller.Memberships);
+        Assert.StartsWith("AQAAAA", (string)(await MariaDbServer.ScalarAsync(connection, "SELECT password_hash FROM users WHERE id = 2"))!);
+        Assert.StartsWith("$2y$", (string)(await MariaDbServer.ScalarAsync(connection, "SELECT password FROM users WHERE id = 2"))!);
+    }
+
+    [MariaDbFact]
+    public async Task El_script_del_Migrator_crea_el_esquema_en_una_base_vacia()
     {
         var connection = await server.CreateDatabaseAsync();
         string script;
         using (var design = new ControlDbContextDesignTimeFactory().CreateDbContext([]))
         {
-            script = design.GetService<IMigrator>().GenerateScript();
+            script = design.Database.GenerateCreateScript();
         }
 
         await MariaDbServer.ExecuteAsync(connection, script);
 
         await using var context = MariaDbServer.CreateContext(connection);
-        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        await ControlSchema.EnsureReadyAsync(context, CancellationToken.None);
         Assert.Equal(0, await context.Tenants.CountAsync());
     }
 
@@ -175,7 +231,8 @@ public class MariaDbCompatibilityTests(MariaDbServer server, ITestOutputHelper o
     [MariaDbFact]
     public async Task El_flujo_de_identidad_y_permisos_funciona_sobre_MariaDB()
     {
-        var connection = await MigratedDatabaseAsync();
+        var connection = await server.CreateHistoricalControlDatabaseAsync();
+        await MariaDbServer.ApplyIdentityScriptAsync(connection);
         await using var factory = new DespachaApiFactory { ControlConnectionString = connection };
         var alfa = await factory.ProvisionTenantAsync("alfa", "admin.alfa");
         await factory.AddMemberAsync(alfa, "vendedor.alfa", "Vendedor");
@@ -205,11 +262,12 @@ public class MariaDbCompatibilityTests(MariaDbServer server, ITestOutputHelper o
         Assert.Equal(HttpStatusCode.Unauthorized, locked.StatusCode);
     }
 
+    /// <summary>Base vacía con el esquema de control completo, como 'apply' en Local.</summary>
     private async Task<string> MigratedDatabaseAsync()
     {
         var connection = await server.CreateDatabaseAsync();
         await using var context = MariaDbServer.CreateContext(connection);
-        await context.Database.MigrateAsync();
+        await context.Database.EnsureCreatedAsync();
         return connection;
     }
 }

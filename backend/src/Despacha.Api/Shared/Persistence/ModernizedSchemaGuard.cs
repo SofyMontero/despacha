@@ -79,13 +79,25 @@ public static class ModernizedSchemaGuard
             await TestProbe(connectionString, cancellationToken);
             return;
         }
+
+        await EnsureAsync(connectionString, MigrationVersion, Requirements, cancellationToken);
+    }
+
+    /// <summary>Igual que <see cref="EnsureReadyAsync"/>, para cualquier versión y lista de columnas (por ejemplo, la base de control).</summary>
+    public static async Task EnsureAsync(
+        string connectionString,
+        string version,
+        IReadOnlyCollection<ColumnRequirement> requirements,
+        CancellationToken cancellationToken = default)
+    {
         var builder = new MySqlConnectionStringBuilder(connectionString);
         if (string.IsNullOrWhiteSpace(builder.Database))
         {
-            throw new DatabaseConnectionBlockedException("La cadena de conexión no define la base de la empresa.");
+            throw new DatabaseConnectionBlockedException("La cadena de conexión no define la base.");
         }
 
-        var key = $"{builder.Server}:{builder.Port}/{builder.Database}";
+        var schema = builder.Database;
+        var key = $"{version}|{builder.Server}:{builder.Port}/{schema}";
         lock (Gate)
         {
             if (Ready.Contains(key))
@@ -94,17 +106,25 @@ public static class ModernizedSchemaGuard
             }
         }
 
+        var tables = requirements.Select(r => r.Table).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         builder.Database = string.Empty;
         await using var connection = new MySqlConnection(builder.ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
+        var names = new List<string>();
+        for (var i = 0; i < tables.Length; i++)
+        {
+            names.Add($"@t{i}");
+            command.Parameters.AddWithValue($"@t{i}", tables[i]);
+        }
+
+        command.CommandText = $"""
+            SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
             FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = @schema
-              AND TABLE_NAME IN ('categorias', 'productos', 'promociones', 'bares', 'clientes')
+              AND TABLE_NAME IN ({string.Join(", ", names)})
             """;
-        command.Parameters.AddWithValue("@schema", key.Split('/')[^1]);
+        command.Parameters.AddWithValue("@schema", schema);
 
         var found = new Dictionary<string, ColumnFact>(StringComparer.OrdinalIgnoreCase);
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
@@ -115,16 +135,18 @@ public static class ModernizedSchemaGuard
                     reader.GetString(1),
                     reader.GetString(2),
                     reader.IsDBNull(3) ? null : reader.GetInt64(3),
-                    string.Equals(reader.GetString(4), "YES", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(reader.GetString(4), "YES", StringComparison.OrdinalIgnoreCase),
+                    !reader.IsDBNull(5) && !string.Equals(reader.GetString(5), "NULL", StringComparison.OrdinalIgnoreCase));
                 found[$"{reader.GetString(0)}.{fact.Name}"] = fact;
             }
         }
 
-        var missing = Requirements.Where(requirement => !Matches(requirement, found)).Select(requirement => requirement.Label).ToArray();
+        var missing = requirements.Where(requirement => !Matches(requirement, found)).Select(requirement => requirement.Label).ToArray();
         if (missing.Length > 0)
         {
+            var shown = missing.Length > 12 ? [.. missing.Take(12), $"y {missing.Length - 12} más"] : missing;
             throw new DatabaseConnectionBlockedException(
-                $"La base no tiene el esquema {MigrationVersion}. Falta: {string.Join(", ", missing)}. No se modificó la base.");
+                $"La base '{schema}' no tiene el esquema {version}. Falta: {string.Join(", ", shown)}. No se modificó la base.");
         }
 
         lock (Gate)
@@ -133,21 +155,35 @@ public static class ModernizedSchemaGuard
         }
     }
 
-    private static ColumnRequirement Column(string table, string column, string? dataType = null, int? minLength = null, bool? nullable = null) =>
-        new(table, column, dataType, minLength, nullable);
+    public static ColumnRequirement Column(
+        string table,
+        string column,
+        string? dataType = null,
+        int? minLength = null,
+        bool? nullable = null,
+        bool requiresDefault = false,
+        bool onlyIfPresent = false) =>
+        new(table, column, dataType, minLength, nullable, requiresDefault, onlyIfPresent);
 
-    private readonly record struct ColumnFact(string Name, string DataType, long? Length, bool Nullable);
+    private readonly record struct ColumnFact(string Name, string DataType, long? Length, bool Nullable, bool HasDefault);
 
-    public readonly record struct ColumnRequirement(string Table, string Column, string? DataType, int? MinLength, bool? Nullable)
+    public readonly record struct ColumnRequirement(
+        string Table,
+        string Column,
+        string? DataType,
+        int? MinLength,
+        bool? Nullable,
+        bool RequiresDefault = false,
+        bool OnlyIfPresent = false)
     {
-        public string Label => $"{Table}.{Column}";
+        public string Label => RequiresDefault ? $"{Table}.{Column} (valor por defecto)" : $"{Table}.{Column}";
     }
 
     private static bool Matches(ColumnRequirement requirement, IReadOnlyDictionary<string, ColumnFact> found)
     {
-        if (!found.TryGetValue(requirement.Label, out var fact))
+        if (!found.TryGetValue($"{requirement.Table}.{requirement.Column}", out var fact))
         {
-            return false;
+            return requirement.OnlyIfPresent;
         }
 
         if (requirement.DataType is not null && !string.Equals(fact.DataType, requirement.DataType, StringComparison.OrdinalIgnoreCase))
@@ -156,6 +192,11 @@ public static class ModernizedSchemaGuard
         }
 
         if (requirement.MinLength is int length && (fact.Length is null || fact.Length < length))
+        {
+            return false;
+        }
+
+        if (requirement.RequiresDefault && !fact.HasDefault)
         {
             return false;
         }

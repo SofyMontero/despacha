@@ -49,6 +49,16 @@ internal sealed class SqliteControlDatabase : IDisposable
         return tenant.Id;
     }
 
+    /// <summary>Empresa sin fila en tenant_databases: vive en la misma base que el control.</summary>
+    public long AddTenantWithoutDatabase(string code)
+    {
+        using var context = CreateContext();
+        var tenant = new Tenant { Code = code, Name = code };
+        context.Tenants.Add(tenant);
+        context.SaveChanges();
+        return tenant.Id;
+    }
+
     public void Dispose() => _connection.Dispose();
 }
 

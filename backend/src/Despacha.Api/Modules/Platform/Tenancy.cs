@@ -43,5 +43,5 @@ public sealed class TenantUnavailableException()
 public static class TenancyApplicationBuilderExtensions
 {
     public static IApplicationBuilder UseTenantResolution(this IApplicationBuilder app) =>
-        app.UseMiddleware<TenantResolutionMiddleware>();
+        app.UseMiddleware<ControlSchemaMiddleware>().UseMiddleware<TenantResolutionMiddleware>();
 }

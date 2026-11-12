@@ -18,6 +18,15 @@ dotnet run --project src/Despacha.Api
 
 Pruebas: `dotnet test` (usan SQLite en memoria y dobles; no se conectan a servicios reales).
 
+### Perfiles de conexión
+
+| Perfil | Comando | Configuración | Secretos |
+|---|---|---|---|
+| Local | `dotnet run --project src/Despacha.Api` | `appsettings.Development.json` (`Despacha:Environment=Local`, solo loopback) | `dotnet user-secrets --project src/Despacha.Api ...` (id `despacha-api-local`) |
+| Test | `dotnet run --project src/Despacha.Api --launch-profile test` | `appsettings.Test.json` (`Despacha:Environment=Test`, servidor `srv1886.hstgr.io`, TLS obligatorio) | `dotnet user-secrets --id despacha-api-test ...`: `ConnectionStrings:Control` y `Auth:Jwt:SigningKey` |
+
+Las pruebas de integración quitan las fuentes de user-secrets: nunca usan ninguno de los dos perfiles.
+
 ## Base de control: migraciones y alta de empresas (`Despacha.Migrator`)
 
 La API nunca migra al arrancar (D-07). El Migrator usa `ConnectionStrings:Control` desde sus propios user-secrets y las mismas guardas de ambiente que la API.
@@ -29,7 +38,10 @@ dotnet run --project src/Despacha.Migrator -- apply --confirm                   
 $env:DESPACHA_ADMIN_PASSWORD = "<clave>"   # o se pide oculta por consola
 dotnet run --project src/Despacha.Migrator -- provision-tenant --code alfa --name "Empresa Alfa" `
   --db-server localhost --db-name despacha_alfa_local --db-secret tenant-alfa --admin-login admin.alfa
+dotnet run --project src/Despacha.Migrator -- tenant-apply --tenant alfa --confirm
 ```
+
+`tenant-apply` crea `categorias`, `productos`, `promociones`, `bares` y `clientes` en una base vacía. No ejecuta las migraciones viejas de `catalog_*`. Si la base ya tiene tablas del PHP sin las columnas modernas, se niega: ese cambio es el script `database/proposed/02_columnas_modernas_NO_EJECUTAR.sql` y no corre desde aquí.
 
 Nueva migración tras cambiar el modelo: `dotnet ef migrations add <Nombre> --project src/Despacha.Api --context ControlDbContext --output-dir Modules/Platform/Internal/Migrations` (herramienta local en `dotnet-tools.json`; `dotnet tool restore`).
 

@@ -89,11 +89,31 @@ public sealed class TenantIsolationTests : IDisposable
         await Assert.ThrowsAsync<DatabaseConnectionBlockedException>(() => CreateProvider().GetConnectionStringAsync(tenant, default));
     }
 
-    private TenantConnectionProvider CreateProvider()
+    [Fact]
+    public async Task Empresa_sin_base_propia_usa_la_base_de_control()
+    {
+        var tenant = _control.AddTenantWithoutDatabase("compartida");
+
+        var connection = await CreateProvider("Server=localhost;Database=despacha_control_local;User ID=control;").GetConnectionStringAsync(tenant, default);
+
+        Assert.Equal("despacha_control_local", new MySqlConnectionStringBuilder(connection).Database);
+    }
+
+    [Fact]
+    public async Task La_base_de_control_compartida_tambien_pasa_por_el_guardian()
+    {
+        var tenant = _control.AddTenantWithoutDatabase("compartida-remota");
+
+        await Assert.ThrowsAsync<DatabaseConnectionBlockedException>(() =>
+            CreateProvider("Server=db.example.com;Database=despacha_control;User ID=control;").GetConnectionStringAsync(tenant, default));
+    }
+
+    private TenantConnectionProvider CreateProvider(string? controlConnection = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["ConnectionStrings:Control"] = controlConnection,
                 ["TenantSecrets:empresa_a_local:User"] = "usuario_a",
                 ["TenantSecrets:empresa_a_local:Password"] = "clave-de-prueba-a",
                 ["TenantSecrets:empresa_b_local:User"] = "usuario_b",
