@@ -159,6 +159,42 @@ internal static class CustomerEndpoints
         }).RequirePermission(Permissions.CustomersRead);
     }
 
+    public static void MapStore(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/store/{tenantCode}/customers", async Task<Results<Created<StoreCustomerResponse>, ValidationProblem>> (
+            StoreCustomerRequest request, ITenantDbContextFactory<CustomersDbContext> factory, ITenantContext tenant, TimeProvider clock, CancellationToken ct) =>
+        {
+            if (!PhoneNumbers.TryNormalizeColombian(request.Phone, out var phone))
+            {
+                return RequestValidation.Single("Phone", "Usa un celular colombiano de 10 dígitos.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return RequestValidation.Single("Name", "Es obligatorio.");
+            }
+
+            await using var db = await factory.CreateAsync(ct);
+            var now = clock.GetUtcNow().UtcDateTime;
+            var customer = new Customer
+            {
+                Name = request.Name.Trim(),
+                Phone = phone,
+                PhoneOriginal = phone,
+                Address = request.Address?.Trim() ?? string.Empty,
+                Zone = request.Zone?.Trim() ?? string.Empty,
+                IsActive = true,
+                NotifyByWhatsApp = 1,
+                CompanyId = tenant.TenantId is long id && id <= int.MaxValue ? (int)id : null,
+                RegisteredAtUtc = now,
+            };
+            customer.MarkCreated(null, now);
+            db.Customers.Add(customer);
+            await db.SaveChangesAsync(ct);
+            return TypedResults.Created($"/api/store/customers/{customer.Id}", new StoreCustomerResponse(customer.Id, customer.Name, customer.Phone));
+        }).AllowAnonymous();
+    }
+
     /// <summary>Como <c>api/cliente.php</c>: nombre y teléfono obligatorios; identificación, dirección, zona y establecimiento opcionales.</summary>
     private static async Task<(RequestValidation Validation, string Phone)> ValidateAsync(
         CustomerRequest request, CustomersDbContext db, Customer? current, CancellationToken ct)
@@ -250,3 +286,7 @@ internal static class CustomerEndpoints
             string.IsNullOrEmpty(c.Zone) ? null : c.Zone, c.EstablishmentId, c.Establishment?.Name,
             c.RegisteredAtUtc, c.IsActive, c.Version, c.UpdatedAtUtc);
 }
+
+internal sealed record StoreCustomerRequest(string? Name, string? Phone, string? Address, string? Zone);
+
+internal sealed record StoreCustomerResponse(long Id, string Name, string Phone);

@@ -24,6 +24,11 @@ public static class DespachaHostingExtensions
         "/api/auth/password/forgot",
         "/api/auth/password/reset",
         "/media/{**key}",
+        "/api/store/{tenantCode}/categories",
+        "/api/store/{tenantCode}/products",
+        "/api/store/{tenantCode}/promotions",
+        "/api/store/{tenantCode}/customers",
+        "/api/store/{tenantCode}/orders",
     };
 
     /// <summary>Host ASP.NET del perfil "test": usa appsettings.Test.json y su propio archivo de user-secrets.</summary>

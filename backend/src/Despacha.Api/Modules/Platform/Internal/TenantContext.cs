@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 
 namespace Despacha.Api.Modules.Platform.Internal;
 
@@ -19,7 +20,7 @@ internal sealed class TenantContext : ITenantContext
 
 internal sealed class TenantResolutionMiddleware(RequestDelegate next)
 {
-    public Task InvokeAsync(HttpContext context, TenantContext tenant)
+    public async Task InvokeAsync(HttpContext context, TenantContext tenant, ControlDbContext db)
     {
         if (context.User.Identity?.IsAuthenticated == true
             && long.TryParse(context.User.FindFirst(DespachaClaims.TenantId)?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var tenantId)
@@ -27,7 +28,27 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
         {
             tenant.Set(tenantId);
         }
+        else if (StoreTenantCode(context) is { } code)
+        {
+            var id = await db.Tenants.AsNoTracking()
+                .Where(company => company.Code == code && company.Status == TenantStatus.Active)
+                .Select(company => company.Id)
+                .SingleOrDefaultAsync();
+            if (id > 0)
+            {
+                tenant.Set(id);
+            }
+        }
 
-        return next(context);
+        await next(context);
+    }
+
+    /// <summary>El catálogo público identifica la empresa por el código de la URL, no por la sesión del personal.</summary>
+    private static string? StoreTenantCode(HttpContext context)
+    {
+        var parts = context.Request.Path.Value?.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts is { Length: >= 3 } && parts[0] == "api" && parts[1] == "store" && parts[2].Length > 0
+            ? parts[2]
+            : null;
     }
 }

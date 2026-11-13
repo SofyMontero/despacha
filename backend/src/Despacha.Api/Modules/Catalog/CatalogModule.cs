@@ -15,5 +15,6 @@ internal sealed class CatalogModule() : ModuleBase("Catalog")
         CategoryEndpoints.Map(catalog);
         ProductEndpoints.Map(catalog);
         PromotionEndpoints.Map(catalog);
+        StoreEndpoints.Map(endpoints);
     }
 }

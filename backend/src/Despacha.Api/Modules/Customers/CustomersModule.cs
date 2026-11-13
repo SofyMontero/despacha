@@ -14,5 +14,6 @@ internal sealed class CustomersModule() : ModuleBase("Customers")
         var customers = endpoints.MapGroup("/api/customers").WithTags("Customers");
         EstablishmentEndpoints.Map(customers);
         CustomerEndpoints.Map(customers);
+        CustomerEndpoints.MapStore(endpoints);
     }
 }

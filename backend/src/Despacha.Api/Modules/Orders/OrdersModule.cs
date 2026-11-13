@@ -9,5 +9,9 @@ internal sealed class OrdersModule() : ModuleBase("Orders")
     public override void Register(IServiceCollection services, IConfiguration configuration) =>
         services.AddTenantSchema<OrdersDbContext>(Name, OrdersDbContext.MigrationsHistoryTable);
 
-    public override void MapEndpoints(IEndpointRouteBuilder endpoints) => OrderEndpoints.Map(endpoints);
+    public override void MapEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        OrderEndpoints.Map(endpoints);
+        OrderEndpoints.MapStore(endpoints);
+    }
 }

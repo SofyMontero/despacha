@@ -4,7 +4,7 @@ using System.Globalization;
 using Despacha.Api.Modules.Platform;
 using Despacha.Api.Shared.Errors;
 using Despacha.Api.Shared.Http;
-using Despacha.Api.Shared.Persistence;
+using Despacha.Api.Shared.Validation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -107,6 +107,50 @@ internal static class OrderEndpoints
         orders.MapPost("/{id:long}/reject", async Task<Results<Ok<OrderDetail>, NotFound, ValidationProblem>> (
             long id, ITenantDbContextFactory<OrdersDbContext> factory, CancellationToken ct) =>
             await TransitionAsync(id, OrderWorkflow.Reject, factory, ct)).RequirePermission("orders.cancel");
+    }
+
+    public static void MapStore(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/store/{tenantCode}/orders", async Task<Results<Created<OrderDetail>, ValidationProblem>> (
+            StoreOrderRequest request, ITenantDbContextFactory<OrdersDbContext> factory, TimeProvider clock, CancellationToken ct) =>
+        {
+            if (!PhoneNumbers.TryNormalizeColombian(request.Phone, out var phone))
+            {
+                return RequestValidation.Single("Phone", "Usa un celular colombiano de 10 dígitos.");
+            }
+
+            await using var db = await factory.CreateAsync(ct);
+            var customerId = await FindCustomerIdAsync(db, phone, ct);
+            if (customerId is null)
+            {
+                return RequestValidation.Single("Phone", "Ese teléfono no está registrado. Completa tus datos.");
+            }
+
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                var built = await BuildAsync(db, new OrderRequest(customerId, request.Note, request.Lines), clock, ct);
+                if (built.Problem is not null)
+                {
+                    return built.Problem;
+                }
+
+                db.Orders.Add(built.Order!);
+                try
+                {
+                    await db.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                    var names = await CustomerNamesAsync(db, [built.Order!.CustomerId], ct);
+                    return TypedResults.Created($"/api/store/orders/{built.Order.Id}", ToDetail(built.Order, names));
+                }
+                catch (DbUpdateException ex) when (attempt < 2 && IsDuplicateNumber(ex))
+                {
+                    db.ChangeTracker.Clear();
+                }
+            }
+
+            return RequestValidation.Single("Number", "No se pudo asignar un número de pedido. Intente de nuevo.");
+        }).AllowAnonymous();
     }
 
     private static async Task<Results<Ok<OrderDetail>, NotFound, ValidationProblem>> TransitionAsync(
@@ -277,6 +321,32 @@ internal static class OrderEndpoints
         return names;
     }
 
+    private static async Task<long?> FindCustomerIdAsync(OrdersDbContext db, string e164, CancellationToken ct)
+    {
+        var forms = PhoneNumbers.EquivalentStored(e164);
+        var connection = await OpenAsync(db, ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id_cliente FROM clientes
+            WHERE activo = 1 AND cli_telefono IN (@a, @b, @c)
+            ORDER BY id_cliente
+            LIMIT 1
+            """;
+        AddText(command, "@a", forms[0]);
+        AddText(command, "@b", forms[1]);
+        AddText(command, "@c", forms[2]);
+        var found = await command.ExecuteScalarAsync(ct);
+        return found is null or DBNull ? null : Convert.ToInt64(found, CultureInfo.InvariantCulture);
+    }
+
+    private static void AddText(DbCommand command, string name, string value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
     private static async Task<CustomerRow?> ReadCustomerAsync(OrdersDbContext db, long id, CancellationToken ct) =>
         await ReadCustomerAsync(await OpenAsync(db, ct), id, ct);
 
@@ -367,6 +437,8 @@ internal sealed class OrderTransitionException()
 internal sealed record OrderQuery(string? Status, DateOnly? From, DateOnly? To, string? Q, int? Page, int? PageSize);
 
 internal sealed record OrderLineRequest(long? ProductId, string? Kind, int? Quantity);
+
+internal sealed record StoreOrderRequest(string? Phone, string? Note, IReadOnlyList<OrderLineRequest>? Lines);
 
 internal sealed record OrderRequest(long? CustomerId, string? Note, IReadOnlyList<OrderLineRequest>? Lines);
 
