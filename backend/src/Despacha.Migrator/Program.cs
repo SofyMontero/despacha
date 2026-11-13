@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text;
 using Despacha.Api.Modules.Platform.Internal;
 using Despacha.Api.Shared.Errors;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MySql.Data.MySqlClient;
 
 namespace Despacha.Migrator;
 
@@ -66,11 +68,13 @@ internal static class MigratorProgram
                 "provision-tenant" => await ProvisionTenantAsync(options),
                 "tenant-script" => TenantScript(options),
                 "tenant-apply" => await TenantApplyAsync(options),
+                "status" => await StatusAsync(options),
+                "apply-catalog" => await ApplyCatalogAsync(options),
                 _ => Fail($"Comando desconocido: {args[0]}"),
             };
         }
         catch (Exception ex) when (ex is OptionsValidationException or InvalidOperationException or ArgumentException
-            or DespachaException or DatabaseConnectionBlockedException)
+            or DespachaException or DatabaseConnectionBlockedException or MySqlException)
         {
             return Fail(ex.Message);
         }
@@ -262,6 +266,188 @@ internal static class MigratorProgram
         var created = await db.Database.EnsureCreatedAsync();
         Console.WriteLine(created ? "Esquema de control creado." : "La base ya tenía tablas: no se cambió nada.");
         return 0;
+    }
+
+    /// <summary>
+    /// Aplica <c>02_columnas_modernas_NO_EJECUTAR.sql</c> solo en Test y solo sobre la base autorizada.
+    /// El archivo ya trae sus propias validaciones y es idempotente.
+    /// </summary>
+    private static async Task<int> ApplyCatalogAsync(MigratorArguments options)
+    {
+        if (!options.Flag("confirm"))
+        {
+            return Fail("apply-catalog exige --confirm.");
+        }
+
+        using var host = BuildHost();
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var runtime = services.GetRequiredService<DespachaRuntime>();
+        var db = services.GetRequiredService<ControlDbContext>();
+        var builder = new MySqlConnectionStringBuilder(db.Database.GetConnectionString());
+        if (runtime.Environment != DespachaEnvironment.Test || builder.Database != "u633742531_Multi_test")
+        {
+            return Fail("apply-catalog solo se aplica en Test sobre u633742531_Multi_test.");
+        }
+
+        DirectoryInfo? repo = new DirectoryInfo(AppContext.BaseDirectory);
+        while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "database", "proposed", "02_columnas_modernas_NO_EJECUTAR.sql")))
+        {
+            repo = repo.Parent;
+        }
+
+        var path = repo is null ? null : Path.Combine(repo.FullName, "database", "proposed", "02_columnas_modernas_NO_EJECUTAR.sql");
+        if (path is null)
+        {
+            return Fail("No se encontró el script 02 junto al repositorio.");
+        }
+
+        var sql = await File.ReadAllTextAsync(path);
+        if (!sql.Contains("v_base_autorizada VARCHAR(64) DEFAULT 'u633742531_Multi_test'", StringComparison.Ordinal))
+        {
+            return Fail("El script 02 no conserva la base autorizada. No se ejecutó.");
+        }
+
+        builder.AllowUserVariables = true;
+        Console.WriteLine($"Ambiente {runtime.Environment}; base {builder.Database}. Aplicando columnas de catálogo y clientes.");
+        await using var connection = new MySqlConnection(builder.ConnectionString);
+        await connection.OpenAsync();
+        foreach (var statement in SplitSqlScript(sql))
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = statement;
+            command.CommandTimeout = 120;
+            await using var reader = await command.ExecuteReaderAsync();
+            do
+            {
+                var width = reader.FieldCount;
+                while (await reader.ReadAsync())
+                {
+                    var cells = new string[width];
+                    for (var i = 0; i < width; i++)
+                    {
+                        cells[i] = reader.IsDBNull(i) ? "" : reader.GetValue(i)?.ToString() ?? "";
+                    }
+
+                    Console.WriteLine(string.Join(" | ", cells));
+                }
+            }
+            while (await reader.NextResultAsync());
+        }
+
+        Console.WriteLine("Script 02 ejecutado.");
+        return 0;
+    }
+
+    private static IEnumerable<string> SplitSqlScript(string sql)
+    {
+        var delimiter = ";";
+        var buffer = new StringBuilder();
+        using var reader = new StringReader(sql);
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("DELIMITER ", StringComparison.OrdinalIgnoreCase))
+            {
+                delimiter = trimmed["DELIMITER ".Length..].Trim();
+                continue;
+            }
+
+            buffer.AppendLine(line);
+            var accumulated = buffer.ToString().TrimEnd();
+            if (!accumulated.EndsWith(delimiter, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var statement = accumulated[..^delimiter.Length].Trim();
+            buffer.Clear();
+            if (statement.Length > 0 && !statement.Split('\n').All(part => part.Trim() is "" or ['-', '-', ..]))
+            {
+                yield return statement;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lectura del ambiente actual: versiones, módulos y el administrador con membresía.
+    /// Con <c>--enable-orders --confirm</c> activa el módulo Orders solo en la base de prueba autorizada.
+    /// </summary>
+    private static async Task<int> StatusAsync(MigratorArguments options)
+    {
+        using var host = BuildHost();
+        await using var scope = host.Services.CreateAsyncScope();
+        var services = scope.ServiceProvider;
+        var runtime = services.GetRequiredService<DespachaRuntime>();
+        var db = services.GetRequiredService<ControlDbContext>();
+        await ControlSchema.EnsureReadyAsync(db, CancellationToken.None);
+        var builder = new MySqlConnectionStringBuilder(db.Database.GetConnectionString());
+        Console.WriteLine($"Ambiente {runtime.Environment}; servidor {builder.Server}; base {builder.Database}.");
+
+        await ModernizedSchemaGuard.EnsureReadyAsync(builder.ConnectionString, CancellationToken.None);
+        Console.WriteLine($"Esquema de catálogo y clientes {ModernizedSchemaGuard.MigrationVersion}: listo.");
+
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+
+        await WriteRowsAsync(connection, "SELECT version, aplicado_en FROM esquema_versiones ORDER BY aplicado_en");
+        await WriteRowsAsync(connection, "SELECT Module, Enabled FROM tenant_modules ORDER BY Module");
+        await WriteRowsAsync(connection, """
+            SELECT u.id, u.usuario,
+                   CASE WHEN u.password_hash IS NULL THEN 'sin_hash_identity' ELSE 'con_hash_identity' END AS identidad,
+                   CASE WHEN u.password LIKE '$2y$%' OR u.password LIKE '$2a$%' OR u.password LIKE '$2b$%' THEN 'bcrypt' ELSE 'no_bcrypt' END AS historica
+            FROM users u
+            JOIN memberships m ON m.UserId = u.id AND m.Status = 'Active'
+            JOIN roles r ON r.id_rol = m.RoleId AND r.rol_nombre = 'Administrador'
+            ORDER BY u.id
+            """);
+
+        if (!options.Flag("enable-orders"))
+        {
+            return 0;
+        }
+
+        if (!options.Flag("confirm"))
+        {
+            return Fail("enable-orders exige --confirm.");
+        }
+
+        if (runtime.Environment != DespachaEnvironment.Test || builder.Database != "u633742531_Multi_test")
+        {
+            return Fail("enable-orders solo se aplica en Test sobre u633742531_Multi_test.");
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT IGNORE INTO tenant_modules (TenantId, Module, Enabled)
+            SELECT id_empresa, 'Orders', 1 FROM empresas
+            """;
+        var inserted = await command.ExecuteNonQueryAsync();
+        Console.WriteLine($"Módulo Orders: filas insertadas {inserted}.");
+        await WriteRowsAsync(connection, "SELECT Module, Enabled FROM tenant_modules ORDER BY Module");
+        return 0;
+    }
+
+    private static async Task WriteRowsAsync(System.Data.Common.DbConnection connection, string sql)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await using var reader = await command.ExecuteReaderAsync();
+        var width = reader.FieldCount;
+        while (await reader.ReadAsync())
+        {
+            var cells = new string[width];
+            for (var i = 0; i < width; i++)
+            {
+                cells[i] = reader.IsDBNull(i) ? "" : reader.GetValue(i)?.ToString() ?? "";
+            }
+
+            Console.WriteLine(string.Join(" | ", cells));
+        }
     }
 
     /// <summary>

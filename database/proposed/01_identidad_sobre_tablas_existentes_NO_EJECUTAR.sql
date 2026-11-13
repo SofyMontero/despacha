@@ -254,7 +254,7 @@ DELIMITER ;
 INSERT IGNORE INTO tenant_modules (TenantId, Module, Enabled)
 SELECT e.id_empresa, m.modulo, 1
 FROM empresas e
-CROSS JOIN (SELECT 'Catalog' AS modulo UNION ALL SELECT 'Customers') m;
+CROSS JOIN (SELECT 'Catalog' AS modulo UNION ALL SELECT 'Customers' UNION ALL SELECT 'Orders') m;
 
 -- Permisos de las plantillas (RoleTemplates.Defaults). Administrador no necesita filas:
 -- recibe todos los permisos de los módulos activos.
@@ -292,7 +292,7 @@ VALUES ('5D.20261026.01', 'Identidad del personal sobre users, roles y empresas'
 
 -- 5. Comprobaciones posteriores (solo lectura). Comparar con lo esperado en TEST:
 --    usuarios 6, con_hash_bcrypt 4, sin_bcrypt 2, membresias 1 (usuario 1),
---    roles_sin_empresa 0, plantillas 3, modulos 2.
+--    roles_sin_empresa 0, plantillas 3, modulos 3.
 SELECT COUNT(*) AS usuarios,
        SUM(password LIKE '$2_$%') AS con_hash_bcrypt,
        SUM(password NOT LIKE '$2_$%') AS sin_bcrypt,
