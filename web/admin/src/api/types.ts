@@ -121,6 +121,31 @@ export type PhoneCheck = {
   samePhoneCustomerIds: number[]
 }
 
+export type OrderLine = {
+  id: number
+  productId: number | null
+  name: string
+  kind: string
+  quantity: number
+  unitPrice: number
+  subtotal: number
+}
+
+export type Order = {
+  id: number
+  number: string
+  status: string
+  statusLabel: string
+  createdAt: string
+  customerId: number
+  customerName: string | null
+  phone: string | null
+  address?: string | null
+  note?: string | null
+  total: number
+  lines?: OrderLine[]
+}
+
 export const pageSize = 20
 
 export const limits = {

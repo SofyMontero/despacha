@@ -9,6 +9,7 @@ import { EstablishmentsPage } from './pages/establishments-page'
 import { HomePage } from './pages/home-page'
 import { LoginPage } from './pages/login-page'
 import { ProductsPage } from './pages/products-page'
+import { OrdersPage } from './pages/orders-page'
 import { PromotionsPage } from './pages/promotions-page'
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -54,6 +55,7 @@ export function AppRoutes() {
         <Route path="/promociones" element={<Permit permission="catalog.read" what="promociones"><PromotionsPage /></Permit>} />
         <Route path="/clientes" element={<Permit permission="customers.read" what="clientes"><CustomersPage /></Permit>} />
         <Route path="/establecimientos" element={<Permit permission="customers.read" what="establecimientos"><EstablishmentsPage /></Permit>} />
+        <Route path="/pedidos" element={<Permit permission="orders.read" what="pedidos"><OrdersPage /></Permit>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -161,8 +161,6 @@ internal static class MigratorProgram
                     $"La base tiene tablas del sistema heredado ({string.Join(", ", legacy)}) sin el esquema {ModernizedSchemaGuard.MigrationVersion}. No se migra.");
             }
 
-            Console.WriteLine("La base ya tiene el esquema moderno. No se cambió nada.");
-            return 0;
         }
 
         Console.WriteLine($"Ambiente {services.GetRequiredService<DespachaRuntime>().Environment}; empresa '{code}'.");

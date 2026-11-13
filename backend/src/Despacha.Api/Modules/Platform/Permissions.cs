@@ -35,6 +35,7 @@ public static class Permissions
         new(CustomersRead, "Customers"),
         new("customers.read.assigned", "Customers"),
         new(CustomersManage, "Customers"),
+        new("orders.read", "Orders"),
         new("orders.approve", "Orders"),
         new("orders.cancel", "Orders"),
         new("fieldSales.workday.manage", "FieldSales"),

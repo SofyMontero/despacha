@@ -11,6 +11,7 @@ const sections = [
   { to: '/promociones', label: 'Promociones', permission: 'catalog.read' },
   { to: '/clientes', label: 'Clientes', permission: 'customers.read' },
   { to: '/establecimientos', label: 'Establecimientos', permission: 'customers.read' },
+  { to: '/pedidos', label: 'Pedidos', permission: 'orders.read' },
 ]
 
 export function Layout() {
