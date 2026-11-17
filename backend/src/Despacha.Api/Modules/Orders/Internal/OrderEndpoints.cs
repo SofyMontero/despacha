@@ -111,6 +111,34 @@ internal static class OrderEndpoints
 
     public static void MapStore(IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet("/api/store/{tenantCode}/orders", async Task<Results<Ok<IReadOnlyList<StoreOrderStatus>>, ValidationProblem>> (
+            string? phone, ITenantDbContextFactory<OrdersDbContext> factory, CancellationToken ct) =>
+        {
+            if (!PhoneNumbers.TryNormalizeColombian(phone, out var normalized))
+            {
+                return RequestValidation.Single("Phone", "Usa un celular colombiano de 10 dígitos.");
+            }
+
+            await using var db = await factory.CreateAsync(ct);
+            var customerId = await FindCustomerIdAsync(db, normalized, ct);
+            if (customerId is null)
+            {
+                return TypedResults.Ok<IReadOnlyList<StoreOrderStatus>>([]);
+            }
+
+            var orders = await db.Orders.AsNoTracking()
+                .Where(order => order.CustomerId == customerId.Value)
+                .OrderByDescending(order => order.CreatedAt)
+                .Take(20)
+                .ToListAsync(ct);
+            IReadOnlyList<StoreOrderStatus> result = orders.Select(order =>
+            {
+                var stage = OrderWorkflow.Parse(order.Status);
+                return new StoreOrderStatus(order.Id, order.Number, order.Status, OrderWorkflow.Label(stage), order.CreatedAt, order.Address, order.Total);
+            }).ToList();
+            return TypedResults.Ok(result);
+        }).AllowAnonymous();
+
         endpoints.MapPost("/api/store/{tenantCode}/orders", async Task<Results<Created<OrderDetail>, ValidationProblem>> (
             StoreOrderRequest request, ITenantDbContextFactory<OrdersDbContext> factory, TimeProvider clock, CancellationToken ct) =>
         {
@@ -439,6 +467,8 @@ internal sealed record OrderQuery(string? Status, DateOnly? From, DateOnly? To, 
 internal sealed record OrderLineRequest(long? ProductId, string? Kind, int? Quantity);
 
 internal sealed record StoreOrderRequest(string? Phone, string? Note, IReadOnlyList<OrderLineRequest>? Lines);
+
+internal sealed record StoreOrderStatus(long Id, string Number, string Status, string StatusLabel, DateTime CreatedAt, string? Address, decimal Total);
 
 internal sealed record OrderRequest(long? CustomerId, string? Note, IReadOnlyList<OrderLineRequest>? Lines);
 

@@ -1,3 +1,4 @@
+using Despacha.Api.Integrations.Maps;
 using Despacha.Api.Integrations.Storage;
 using Despacha.Api.Shared.Logging;
 
@@ -38,6 +39,10 @@ public static class IntegrationsServiceCollectionExtensions
     {
         services.AddSingleton<IWhatsAppSender, DisabledWhatsAppSender>();
         services.AddDespachaStorage();
+        services.AddOptions<MapOptions>().BindConfiguration(MapOptions.SectionName)
+            .Validate(map => map.Provider is "Google", "Maps:Provider debe ser Google.")
+            .ValidateOnStart();
+        services.AddSingleton<IMaps, GoogleMaps>();
         return services;
     }
 }

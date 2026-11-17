@@ -47,7 +47,7 @@ internal static class StoreEndpoints
                 .Select(promotion => new StorePromotion(
                     promotion.Id, promotion.Title, promotion.Description, promotion.UnitPrice, promotion.PackPrice, promotion.SellsByUnit, promotion.ImageKey))
                 .ToListAsync(ct);
-            return TypedResults.Ok(items.Select(item => item with { ImageUrl = storage.GetUrl(item.ImageUrl) }).ToList());
+            return TypedResults.Ok(items.Select(item => item with { ImageUrl = storage.GetUrl(item.ImageUrl, ImageKeys.PromotionFolder) }).ToList());
         }).AllowAnonymous();
     }
 }

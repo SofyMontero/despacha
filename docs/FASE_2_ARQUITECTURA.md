@@ -655,25 +655,12 @@ Comparación que llevó a esta decisión:
 
 ## 14. Mapas
 
-### D-17 — Proveedor de mapas pendiente de evaluación (Pendiente; verificación técnica)
+### D-17 — Proveedor de mapas: Google Maps Platform (Decidido)
 
-- **Google Maps no está aprobado como proveedor definitivo.** Ningún proveedor está elegido.
-- **La arquitectura no depende del proveedor:** todo el uso pasa por el adaptador `Integrations/Maps`, que cubre mapa, geocodificación, rutas y tiempo de llegada. En el móvil se usa un componente de mapa que se puede cambiar.
-- **Proveedores a evaluar:**
-  - Google Maps Platform.
-  - Mapbox.
-  - MapLibre con teselas de un proveedor compatible con OSM (MapTiler o Stadia), y geocodificación y rutas de un proveedor o propias (OpenRouteService, OSRM, GraphHopper o Valhalla).
-  - Las teselas de `tile.openstreetmap.org` y el Nominatim público **no** sirven para producción.
-- **Criterios de evaluación:**
-  - Calidad de geocodificación con direcciones colombianas reales de la base de test ("Cl 45 # 12-30").
-  - Costo con el volumen esperado.
-  - Licencia para uso comercial y para guardar coordenadas.
-  - SDK móvil para Expo y mapa web.
-  - Rutas y tiempo de llegada.
-  - Límites de consumo.
-- **Mientras no se decida:**
-  - El establecimiento guarda las coordenadas que confirma el usuario al poner el pin.
-  - El tiempo de llegada se estima por distancia.
+- **Proveedor elegido: Google Maps Platform.** Geocodifica mejor las direcciones colombianas del tipo "Cl 45 # 12-30", tiene rutas y tiempo de llegada, licencia comercial clara y mapa en Expo y en la web. Mapbox y MapLibre quedan como alternativa si el costo o la licencia lo piden; el código habla con `Integrations/Maps`, no con Google directamente.
+- **Las teselas de `tile.openstreetmap.org` y el Nominatim público no sirven para producción.**
+- **La clave no va en el repositorio.** Sin `Maps:ApiKey` no hay geocodificación ni ruta real: el cliente abre la dirección en Google Maps y, cuando hay dos coordenadas, el tiempo se estima por distancia.
+- **Hasta tener la clave y el build de desarrollo:** el establecimiento guarda las coordenadas que confirma el usuario al poner el pin, y el tiempo de llegada se estima por distancia. El GPS del domiciliario no corre en Expo Go.
 
 ---
 

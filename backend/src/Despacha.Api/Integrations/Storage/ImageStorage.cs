@@ -32,6 +32,12 @@ public interface IImageStorage
     Task DeleteAsync(string key, CancellationToken cancellationToken);
 
     string? GetUrl(string? key);
+
+    /// <summary>
+    /// Nombre suelto del PHP. <paramref name="legacyFolder"/> es la carpeta bajo <c>sistema/assets/img</c>:
+    /// <c>licores</c> para productos y categorías, <c>licores/promos</c> para promociones.
+    /// </summary>
+    string? GetUrl(string? key, string legacyFolder);
 }
 
 public sealed class StorageUnavailableException()
@@ -41,6 +47,10 @@ public static partial class ImageKeys
 {
     /// <summary>Prefijo de las imágenes del PHP; el resto de la clave es la ruta relativa a <c>sistema/assets/img/</c>.</summary>
     public const string LegacyPrefix = "legacy/";
+
+    public const string ProductFolder = "licores";
+
+    public const string PromotionFolder = "licores/promos";
 
     public static bool IsLegacy(string key) =>
         key.StartsWith(LegacyPrefix, StringComparison.Ordinal) || IsBareFileName(key);
@@ -131,7 +141,9 @@ internal abstract class ImageStorageBase(StorageOptions options) : IImageStorage
 
     public abstract Task DeleteAsync(string key, CancellationToken cancellationToken);
 
-    public string? GetUrl(string? key)
+    public string? GetUrl(string? key) => GetUrl(key, ImageKeys.ProductFolder);
+
+    public string? GetUrl(string? key, string legacyFolder)
     {
         if (string.IsNullOrEmpty(key))
         {
@@ -140,12 +152,12 @@ internal abstract class ImageStorageBase(StorageOptions options) : IImageStorage
 
         if (ImageKeys.IsBareFileName(key))
         {
-            if (string.IsNullOrWhiteSpace(options.LegacyBaseUrl))
+            if (string.IsNullOrWhiteSpace(options.LegacyBaseUrl) || legacyFolder is not (ImageKeys.ProductFolder or ImageKeys.PromotionFolder))
             {
                 return null;
             }
 
-            return options.LegacyBaseUrl.TrimEnd('/') + "/licores/" + Uri.EscapeDataString(key);
+            return options.LegacyBaseUrl.TrimEnd('/') + "/" + legacyFolder + "/" + Uri.EscapeDataString(key);
         }
 
         if (!ImageKeys.IsLegacy(key))

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Linking,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -16,7 +17,17 @@ const API = 'http://192.168.1.6:5080'
 const STORE = `${API}/api/store/multilicores`
 const FALLBACK = 'https://multilicoreschapinero.com/sistema/assets/img/logoM.png'
 
-type Screen = 'home' | 'products' | 'promos' | 'cart' | 'checkout' | 'done'
+type Screen = 'home' | 'products' | 'promos' | 'cart' | 'checkout' | 'done' | 'orders'
+
+type StoreOrder = {
+  id: number
+  number: string
+  status: string
+  statusLabel: string
+  createdAt: string
+  address: string | null
+  total: number
+}
 
 type Category = { id: number; name: string; imageUrl: string | null }
 type Product = {
@@ -46,6 +57,7 @@ export default function App() {
   const [category, setCategory] = useState<Category | null>(null)
   const [cart, setCart] = useState<CartItem[]>([])
   const [orderNumber, setOrderNumber] = useState('')
+  const [phone, setPhone] = useState('')
   const count = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   function add(product: Product, kind: 'unidad' | 'paca') {
@@ -66,9 +78,14 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.brand}>Despacha</Text>
-        <Pressable onPress={() => setScreen('cart')}>
-          <Text style={styles.cartLink}>Carrito ({count})</Text>
-        </Pressable>
+        <View style={styles.row}>
+          <Pressable onPress={() => setScreen('orders')}>
+            <Text style={styles.cartLink}>Pedidos</Text>
+          </Pressable>
+          <Pressable onPress={() => setScreen('cart')}>
+            <Text style={styles.cartLink}>Carrito ({count})</Text>
+          </Pressable>
+        </View>
       </View>
       {screen === 'home' ? <Home onOpen={(item) => { setCategory(item); setScreen('products') }} onPromos={() => setScreen('promos')} /> : null}
       {screen === 'products' && category ? (
@@ -87,10 +104,11 @@ export default function App() {
         <Checkout
           items={cart}
           onBack={() => setScreen('cart')}
-          onDone={(number) => { setCart([]); setOrderNumber(number); setScreen('done') }}
+          onDone={(number, usedPhone) => { setCart([]); setOrderNumber(number); setPhone(usedPhone); setScreen('done') }}
         />
       ) : null}
-      {screen === 'done' ? <Done number={orderNumber} onHome={() => setScreen('home')} /> : null}
+      {screen === 'done' ? <Done number={orderNumber} onHome={() => setScreen('home')} onTrack={() => setScreen('orders')} /> : null}
+      {screen === 'orders' ? <Orders phone={phone} onPhone={setPhone} onHome={() => setScreen('home')} /> : null}
     </SafeAreaView>
   )
 }
@@ -118,7 +136,7 @@ function Home({ onOpen, onPromos }: { onOpen: (category: Category) => void; onPr
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => onOpen(item)}>
-            <Image source={{ uri: item.imageUrl || FALLBACK }} style={styles.thumb} />
+            <Photo uri={item.imageUrl} />
             <Text style={styles.cardTitle}>{item.name}</Text>
           </Pressable>
         )}
@@ -173,6 +191,7 @@ function Promos({ onBack, onAdd }: { onBack: () => void; onAdd: (product: Produc
 function ProductRow({ product, onAdd }: { product: Product; onAdd: (product: Product, kind: 'unidad' | 'paca') => void }) {
   return (
     <View style={styles.product}>
+      <Photo uri={product.imageUrl} />
       <Text style={styles.cardTitle}>{product.name}</Text>
       <Text>{product.sellsByUnit ? `Unidad ${money(product.unitPrice)}` : ''}  Paca {money(product.packPrice)}</Text>
       <View style={styles.row}>
@@ -207,7 +226,7 @@ function Cart({ items, onBack, onChange, onCheckout }: { items: CartItem[]; onBa
   )
 }
 
-function Checkout({ items, onBack, onDone }: { items: CartItem[]; onBack: () => void; onDone: (number: string) => void }) {
+function Checkout({ items, onBack, onDone }: { items: CartItem[]; onBack: () => void; onDone: (number: string, phone: string) => void }) {
   const [phone, setPhone] = useState('')
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
@@ -249,7 +268,7 @@ function Checkout({ items, onBack, onDone }: { items: CartItem[]; onBack: () => 
       if (!response.ok) {
         throw new Error(body.errors ? Object.values(body.errors).flat().join(' ') : 'No se pudo crear el pedido')
       }
-      onDone(body.number)
+      onDone(body.number, phone)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Error al enviar')
     } finally {
@@ -279,15 +298,95 @@ function Checkout({ items, onBack, onDone }: { items: CartItem[]; onBack: () => 
   )
 }
 
-function Done({ number, onHome }: { number: string; onHome: () => void }) {
+function Done({ number, onHome, onTrack }: { number: string; onHome: () => void; onTrack: () => void }) {
   return (
     <View style={styles.done}>
       <Text style={styles.title}>Pedido enviado</Text>
       <Text style={styles.total}>{number}</Text>
-      <Text>Quedó pendiente. El administrador lo ve en el panel.</Text>
-      <Pressable style={styles.button} onPress={onHome}><Text style={styles.buttonText}>Volver al catálogo</Text></Pressable>
+      <Text>Quedó pendiente. Puedes seguir el estado con tu celular.</Text>
+      <Pressable style={styles.button} onPress={onTrack}><Text style={styles.buttonText}>Ver mi pedido</Text></Pressable>
+      <Pressable onPress={onHome}><Text style={styles.link}>Volver al catálogo</Text></Pressable>
     </View>
   )
+}
+
+const STEPS = [
+  { status: 'pendiente', label: 'Pendiente' },
+  { status: 'aceptado', label: 'Aceptado' },
+  { status: 'enviado', label: 'En camino' },
+  { status: 'finalizaCo', label: 'Entregado' },
+]
+
+function stepIndex(status: string) {
+  if (status === 'finalizaCr') return 3
+  const index = STEPS.findIndex((step) => step.status === status)
+  return index < 0 ? 0 : index
+}
+
+function openMap(address: string) {
+  const query = encodeURIComponent(`${address}, Bogotá, Colombia`)
+  return Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`)
+}
+
+function Orders({ phone, onPhone, onHome }: { phone: string; onPhone: (phone: string) => void; onHome: () => void }) {
+  const [items, setItems] = useState<StoreOrder[]>([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch(`${STORE}/orders?phone=${encodeURIComponent(phone)}`)
+      const body = await response.json()
+      if (!response.ok) {
+        throw new Error(body.errors ? Object.values(body.errors).flat().join(' ') : 'No se pudieron cargar los pedidos')
+      }
+      setItems(body as StoreOrder[])
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Error al consultar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <View style={styles.body}>
+      <Pressable onPress={onHome}><Text style={styles.link}>← Catálogo</Text></Pressable>
+      <Text style={styles.title}>Mis pedidos</Text>
+      <TextInput style={styles.input} placeholder="Celular" keyboardType="phone-pad" value={phone} onChangeText={onPhone} />
+      <Pressable style={styles.button} onPress={() => void load()}><Text style={styles.buttonText}>{loading ? 'Buscando…' : 'Buscar'}</Text></Pressable>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <FlatList
+        data={items}
+        keyExtractor={(item) => String(item.id)}
+        ListEmptyComponent={<Text>Todavía no hay pedidos con ese celular.</Text>}
+        renderItem={({ item }) => {
+          const current = stepIndex(item.status)
+          return (
+            <View style={styles.product}>
+              <Text style={styles.cardTitle}>{item.number}</Text>
+              <Text>{item.statusLabel} · {money(item.total)}</Text>
+              <View style={styles.steps}>
+                {STEPS.map((step, index) => (
+                  <Text key={step.status} style={index <= current && item.status !== 'rechazado' ? styles.stepOn : styles.stepOff}>{step.label}</Text>
+                ))}
+              </View>
+              {item.status === 'rechazado' ? <Text style={styles.error}>Rechazado</Text> : null}
+              {item.address ? (
+                <Pressable onPress={() => void openMap(item.address!)}><Text style={styles.link}>Ver dirección en Google Maps</Text></Pressable>
+              ) : null}
+            </View>
+          )
+        }}
+      />
+    </View>
+  )
+}
+
+function Photo({ uri }: { uri: string | null }) {
+  const [failed, setFailed] = useState(false)
+  return <Image source={{ uri: !failed && uri ? uri : FALLBACK }} style={styles.photo} onError={() => setFailed(true)} />
 }
 
 const styles = StyleSheet.create({
@@ -301,6 +400,10 @@ const styles = StyleSheet.create({
   bannerText: { color: '#1d4e89', fontWeight: '700' },
   card: { backgroundColor: '#fff', borderRadius: 8, marginBottom: 10, overflow: 'hidden' },
   thumb: { height: 120, backgroundColor: '#d9e3ef' },
+  photo: { width: '100%', height: 120, backgroundColor: '#d9e3ef' },
+  steps: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  stepOn: { color: '#1d4e89', fontWeight: '700' },
+  stepOff: { color: '#8aa0b8' },
   cardTitle: { fontSize: 16, fontWeight: '700', padding: 8, color: '#16324f' },
   product: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 10, gap: 6 },
   row: { flexDirection: 'row', gap: 8 },

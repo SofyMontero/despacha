@@ -191,5 +191,5 @@ internal static class PromotionEndpoints
 
     private static PromotionResponse ToResponse(Promotion p, IImageStorage storage) =>
         new(p.Id, p.Title, p.Description ?? "", p.Code, p.ProductId, p.Product?.Name, p.UnitPrice, p.PackPrice, p.SellsByUnit, p.Priority,
-            p.IsActive, p.ImageKey, storage.GetUrl(p.ImageKey), p.CreatedAtUtc, p.Version, p.UpdatedAtUtc);
+            p.IsActive, p.ImageKey, storage.GetUrl(p.ImageKey, ImageKeys.PromotionFolder), p.CreatedAtUtc, p.Version, p.UpdatedAtUtc);
 }

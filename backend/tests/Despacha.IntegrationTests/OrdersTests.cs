@@ -90,6 +90,43 @@ public class OrdersTests
         Assert.Equal(HttpStatusCode.Conflict, again.StatusCode);
     }
 
+    [Fact]
+    public async Task El_cliente_consulta_sus_pedidos_con_el_celular()
+    {
+        await using var factory = new DespachaApiFactory().WithSqliteTenantDatabases();
+        await factory.ProvisionTenantAsync("alfa", "admin.alfa");
+        using var client = factory.CreateClient();
+        var admin = (await DespachaApiFactory.LoginAsync(client, "admin.alfa")).AccessToken;
+
+        var category = await (await Send(client, HttpMethod.Post, "/api/catalog/categories", admin, new { name = "Ron" })).Content.ReadFromJsonAsync<IdDto>();
+        var product = await (await Send(client, HttpMethod.Post, "/api/catalog/products", admin, new
+        {
+            code = "303",
+            name = "Botella",
+            categoryId = category!.Id,
+            unitPrice = 5000m,
+            packPrice = 50000m,
+            unitsPerPack = 12,
+            sellsByUnit = true,
+        })).Content.ReadFromJsonAsync<IdDto>();
+        var customer = await (await Send(client, HttpMethod.Post, "/api/customers/customers", admin, new { name = "Bar Norte", phone = "3001112233", address = "Cl 45 # 12-30" })).Content.ReadFromJsonAsync<CustomerSave>();
+        var created = await Send(client, HttpMethod.Post, "/api/orders", admin, new
+        {
+            customerId = customer!.Customer.Id,
+            lines = new[] { new { productId = product!.Id, kind = "unidad", quantity = 1 } },
+        });
+        var order = await created.Content.ReadFromJsonAsync<OrderDto>();
+
+        var own = await client.GetAsync("/api/store/alfa/orders?phone=3001112233");
+        var other = await client.GetAsync("/api/store/alfa/orders?phone=3009998877");
+        var mine = await own.Content.ReadFromJsonAsync<StoreOrderDto[]>();
+        var theirs = await other.Content.ReadFromJsonAsync<StoreOrderDto[]>();
+
+        Assert.Equal(HttpStatusCode.OK, own.StatusCode);
+        Assert.Contains(mine!, item => item.Number == order!.Number && item.Address == "Cl 45 # 12-30");
+        Assert.Empty(theirs!);
+    }
+
     private sealed record IdDto(long Id);
 
     private sealed record CustomerSave(CustomerDto Customer);
@@ -101,4 +138,6 @@ public class OrdersTests
     private sealed record OrderDto(long Id, string Number, string Status, decimal Total, OrderLineDto[] Lines);
 
     private sealed record PageDto(int Total);
+
+    private sealed record StoreOrderDto(string Number, string? Address);
 }

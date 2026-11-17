@@ -82,6 +82,8 @@ public sealed class ImageStorageTests : IDisposable
 
         Assert.Equal("https://ejemplo.test/sistema/assets/img/licores/mi%20foto.png", storage.GetUrl("legacy/licores/mi foto.png"));
         Assert.Equal("https://ejemplo.test/sistema/assets/img/licores/AguardientesC.png", storage.GetUrl("AguardientesC.png"));
+        Assert.Equal("https://ejemplo.test/sistema/assets/img/licores/promos/2real.jpeg", storage.GetUrl("2real.jpeg", ImageKeys.PromotionFolder));
+        Assert.Null(storage.GetUrl("2real.jpeg", "../licores"));
         Assert.Null(Storage().GetUrl("AguardientesC.png"));
         Assert.Null(Storage().GetUrl("legacy/licores/foto.png"));
         Assert.Null(new DisabledImageStorage(new StorageOptions()).GetUrl("t1/catalog/products/0123456789abcdef0123456789abcdef.png"));
